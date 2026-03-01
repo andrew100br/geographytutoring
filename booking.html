@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book a Lesson | Teacher Andrew</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+        rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body class="booking-page">
+
+    <!-- Navigation -->
+    <header class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <i class="ph ph-globe-hemisphere-west"></i>
+                Teacher Andrew
+            </a>
+            <nav class="nav-links">
+                <a href="blog.html">Blog</a>
+                <a href="index.html">Back to Home</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="booking-main bg-light">
+        <div class="container booking-container">
+
+            <!-- Account Creation / Login View -->
+            <div class="auth-box" id="auth-view">
+                <div class="auth-header">
+                    <h2><i class="ph ph-user-circle-plus"></i> Access Booking</h2>
+                    <p>Log in or create a new account to see availability and book.</p>
+                </div>
+
+                <div class="auth-tabs">
+                    <button type="button" class="auth-tab active" id="tab-signup">Sign Up</button>
+                    <button type="button" class="auth-tab" id="tab-login">Log In</button>
+                </div>
+
+                <form id="auth-form" class="booking-form">
+                    <div class="form-group" id="parent-name-group">
+                        <label for="parentName">Parent's Name</label>
+                        <input type="text" id="parentName" placeholder="Jane Doe" required>
+                    </div>
+                    <div class="form-group" id="child-name-group">
+                        <label for="childName">Child's Name</label>
+                        <input type="text" id="childName" placeholder="John Doe" required>
+                    </div>
+                    <div class="form-group" id="country-group">
+                        <label for="userCountry">Country</label>
+                        <input type="text" id="userCountry" placeholder="e.g. United Kingdom" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="userEmail">Email Address</label>
+                        <input type="email" id="userEmail" placeholder="jane@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="userPassword">Password</label>
+                        <input type="password" id="userPassword" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" id="auth-submit-btn">Create Account</button>
+                    <p class="form-status" id="auth-status"></p>
+                </form>
+            </div>
+
+            <!-- Calendar / Booking View (Hidden by default) -->
+            <div class="calendar-box hidden" id="calendar-view">
+                <div class="calendar-header">
+                    <h2><i class="ph ph-calendar-check"></i> Dashboard & Booking</h2>
+                    <p>Welcome back! Select a time below to book a new lesson.</p>
+                </div>
+
+                <!-- User Dashboard Area -->
+                <div class="user-dashboard" id="user-dashboard">
+                    <div class="dashboard-stats">
+                        <div class="stat-card">
+                            <h3><i class="ph ph-coins"></i> Credit Balance</h3>
+                            <p class="stat-large" id="credit-balance-display">10</p>
+                            <p class="stat-label">Lessons Remaining</p>
+                        </div>
+                        <div class="stat-card highlight-stat">
+                            <h3><i class="ph ph-calendar-star"></i> Current Bookings</h3>
+                            <p class="stat-large" id="current-bookings-count">0</p>
+                            <p class="stat-label">Upcoming Sessions</p>
+                        </div>
+                    </div>
+
+                    <div class="bookings-list-container">
+                        <h3>My Schedule</h3>
+                        <ul id="bookings-list" class="bookings-list">
+                            <li class="empty-bookings">No upcoming bookings. Select a time below to schedule!</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Top-Up Credits Section -->
+                <div class="user-dashboard" id="top-up-section" style="margin-top: -1rem; margin-bottom: 2rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3><i class="ph ph-shopping-bag"></i> Buy Lesson Credits</h3>
+                    </div>
+
+                    <div class="dashboard-stats" style="margin-bottom: 0;">
+                        <!-- Pay As You Go -->
+                        <div class="stat-card"
+                            style="display: flex; flex-direction: column; text-align: left; position: relative;">
+                            <h4 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Pay As You Go</h4>
+                            <p class="price"
+                                style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color); margin-bottom: 0.5rem;">
+                                $30 <span style="font-size: 0.85rem; font-weight: 400; color: #64748b;">/ lesson</span>
+                            </p>
+                            <p class="small-desc" style="margin-bottom: 1.5rem;">Need just a few lessons? Buy exact
+                                quantities to top up your balance.</p>
+
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; gap: 1rem;">
+                                <div
+                                    style="display: flex; align-items: center; border: 1px solid var(--border-color); border-radius: 5px; overflow: hidden;">
+                                    <button class="btn btn-icon" id="qty-minus"
+                                        style="border: none; border-radius: 0; background: #f8fafc; padding: 0.5rem 0.8rem; color: #475569;"><i
+                                            class="ph ph-minus"></i></button>
+                                    <span id="buy-qty"
+                                        style="padding: 0 1rem; font-weight: 600; min-width: 40px; text-align: center;">1</span>
+                                    <button class="btn btn-icon" id="qty-plus"
+                                        style="border: none; border-radius: 0; background: #f8fafc; padding: 0.5rem 0.8rem; color: #475569;"><i
+                                            class="ph ph-plus"></i></button>
+                                </div>
+                                <button class="btn btn-outline" id="buy-single-btn" style="flex: 1;">Buy <span
+                                        id="buy-total-price">$30</span></button>
+                            </div>
+                        </div>
+
+                        <!-- 10-Lesson Bundle -->
+                        <div class="stat-card highlight"
+                            style="display: flex; flex-direction: column; text-align: left; position: relative; border-color: var(--accent);">
+                            <div class="badge"
+                                style="top: -10px; right: -10px; background: var(--accent); color: var(--primary-color); position: absolute; padding: 0.2rem 0.8rem; border-radius: 15px; font-weight: 700; font-size: 0.85rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                10% Off</div>
+                            <h4 style="font-size: 1.1rem; margin-bottom: 0.5rem;">10-Lesson Bundle</h4>
+                            <p class="price"
+                                style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color); margin-bottom: 0.5rem;">
+                                $270 <span style="font-size: 0.85rem; font-weight: 400; color: #64748b;">/
+                                    package</span></p>
+                            <p class="small-desc" style="margin-bottom: 1.5rem;">Unlock priority monthly scheduling when
+                                you maintain a 10-lesson balance.</p>
+
+                            <button class="btn btn-primary btn-full" id="buy-bundle-btn"
+                                style="margin-top: auto;">Secure Bundle</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="calendar-wrapper">
+                    <div class="calendar-meta">
+                        <p>Showing availability in your local timezone: <strong id="user-timezone"
+                                class="highlight-text">Detecting...</strong></p>
+                        <p class="fine-print">Teacher Andrew is located in Thailand (UTC+7). Times below are
+                            automatically converted for you.</p>
+                    </div>
+                    <div class="calendar-nav">
+                        <button id="prev-week" class="btn btn-secondary btn-icon"><i
+                                class="ph ph-caret-left"></i></button>
+                        <h3 id="current-week-label">This Week</h3>
+                        <button id="next-week" class="btn btn-secondary btn-icon"><i
+                                class="ph ph-caret-right"></i></button>
+                    </div>
+
+                    <!-- Dynamics Days Container -->
+                    <div class="days-grid" id="days-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Booking Confirmation Modal / Overlay -->
+                <div class="booking-modal hidden" id="booking-modal">
+                    <div class="modal-content">
+                        <h3>Confirm Booking</h3>
+                        <p id="selected-slot-text"></p>
+
+                        <!-- Monthly Booking Option -->
+                        <div class="monthly-booking-option" id="monthly-booking-option">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="book-monthly-checkbox">
+                                <span class="checkmark"></span>
+                                <div class="checkbox-text">
+                                    <strong>Secure this slot monthly</strong>
+                                    <span class="cost-badge" id="monthly-cost-badge">4 Credits</span>
+                                    <p class="small-desc">Automatically book this weekly time for the next 4 weeks.
+                                        (Requires 10-Lesson Package)</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button class="btn btn-secondary" id="cancel-booking">Cancel</button>
+                            <button class="btn btn-primary" id="confirm-booking">Confirm Booking (<span
+                                    id="confirm-cost">1 Credit</span>)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-header" style="text-align: center; margin-top: 2rem;">
+                    <button id="logout-btn" class="btn btn-outline">Log Out</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer>
+        <div class="container footer-content">
+            <div class="footer-logo">
+                <i class="ph ph-globe-hemisphere-west"></i>
+                <span>Teacher Andrew</span>
+            </div>
+            <p>&copy; 2024 Teacher Andrew. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="booking.js"></script>
+</body>
+
+</html>
