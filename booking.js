@@ -793,7 +793,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (error) {
                 console.error("Failed to send message", error);
-                alert("Failed to send message. Please try again.");
+                alert("Failed to send message: " + (error.message || JSON.stringify(error)));
             } else {
                 input.value = '';
                 // Reload messages
