@@ -247,29 +247,27 @@
                     </div>
                 </div>
 
-                <!-- Contact Tutor Section -->
-                <div class="user-dashboard" id="contact-tutor-section" style="margin-top: 2rem; margin-bottom: 2rem;">
+                <!-- Messages Section -->
+                <div class="user-dashboard" id="messages-section" style="margin-top: 2rem; margin-bottom: 2rem;">
                     <div style="margin-bottom: 1rem;">
-                        <h3><i class="ph ph-envelope-simple"></i> Message Teacher Andrew</h3>
-                        <p style="color: #64748b; font-size: 0.95rem;">Have a question about an upcoming lesson or need
-                            to reschedule? Send a secure message directly to my inbox.</p>
+                        <h3><i class="ph ph-chat-circle-dots"></i> Messages</h3>
+                        <p style="color: #64748b; font-size: 0.95rem;">Chat directly with Teacher Andrew here.</p>
                     </div>
 
-                    <form action="https://formsubmit.co/andrew100br@gmail.com" method="POST" id="portal-contact-form"
-                        class="booking-form" style="max-width: 100%; box-shadow: none; padding: 0; margin-top: 1rem;">
-                        <input type="hidden" name="_captcha" value="false">
-                        <input type="hidden" name="_subject" value="Message from Booking Portal Client">
-                        <input type="hidden" name="_next" value="https://geographytutoring.netlify.app/booking.html">
-
-                        <!-- Hidden name input mapped to FormSubmit via name attribute -->
-                        <input type="hidden" id="portal-name-hidden" name="Client Name" value="Unknown Client">
-
-                        <div class="form-group">
-                            <label for="portal-message">Message</label>
-                            <textarea id="portal-message" name="message" rows="3" required
-                                placeholder="Type your message here..."></textarea>
+                    <div id="chat-box"
+                        style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; height: 300px; overflow-y: auto; padding: 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <!-- Messages appended here by JS -->
+                        <div id="chat-loading"
+                            style="text-align: center; color: #94a3b8; font-size: 0.9rem; margin-top: auto; margin-bottom: auto;">
+                            Loading messages...
                         </div>
-                        <button type="submit" class="btn btn-secondary">Send Message</button>
+                    </div>
+
+                    <form id="chat-form" style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="chat-input" placeholder="Type your message..." required
+                            style="flex: 1; padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 5px; font-family: inherit;">
+                        <button type="submit" class="btn btn-primary" id="chat-submit-btn" style="padding: 0 1.5rem;"><i
+                                class="ph ph-paper-plane-right"></i> Send</button>
                     </form>
                 </div>
 
