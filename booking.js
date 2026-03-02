@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // ---- DOM Elements ----
     const authView = document.getElementById('auth-view');
     const calendarView = document.getElementById('calendar-view');
@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const parentNameInput = document.getElementById('parentName');
     const childNameInput = document.getElementById('childName');
     const userCountryInput = document.getElementById('userCountry');
+    const userEmailInput = document.getElementById('userEmail');
     const logoutBtn = document.getElementById('logout-btn');
 
     const userTimezoneEl = document.getElementById('user-timezone');
@@ -46,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- State ----
     let isLoginMode = false;
-    let userCredits = 10; // Mock starting balance for 10-lesson package
+    let userCredits = 0; // Starting user credits
     let upcomingBookings = []; // Array to hold bookings
     let purchaseQty = 1;
     const PRICE_PER_LESSON = 30;
@@ -66,6 +67,31 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCalendar();
     updateDashboard();
 
+    // ---- Session Check ----
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+        const credits = profile ? profile.credits : 0;
+        const parentName = profile ? profile.parent_name : "Parent";
+
+        // We can reuse loginSuccess logic manually here
+        userCredits = credits;
+        updateDashboard();
+
+        const hiddenNameInput = document.getElementById('portal-name-hidden');
+        if (hiddenNameInput) {
+            hiddenNameInput.value = parentName;
+        }
+
+        authView.classList.add('hidden');
+        calendarView.classList.remove('hidden');
+    }
+
     // ---- Auth Logic ----
     function initAuth() {
         tabLogin.addEventListener('click', () => {
@@ -80,6 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
             parentNameInput.removeAttribute('required');
             childNameInput.removeAttribute('required');
             userCountryInput.removeAttribute('required');
+            document.getElementById('forgot-password-container').style.display = 'block';
+            if (confirmPasswordGroup) confirmPasswordGroup.style.display = 'none';
+            if (confirmPasswordInput) confirmPasswordInput.removeAttribute('required');
+            const authStatusMsg = document.getElementById('auth-status');
+            if (authStatusMsg) authStatusMsg.textContent = '';
         });
 
         tabSignup.addEventListener('click', () => {
@@ -94,27 +125,211 @@ document.addEventListener('DOMContentLoaded', () => {
             parentNameInput.setAttribute('required', 'true');
             childNameInput.setAttribute('required', 'true');
             userCountryInput.setAttribute('required', 'true');
+            document.getElementById('forgot-password-container').style.display = 'none';
+            if (confirmPasswordGroup) confirmPasswordGroup.style.display = 'block';
+            if (confirmPasswordInput) confirmPasswordInput.setAttribute('required', 'true');
+            const authStatusMsg = document.getElementById('auth-status');
+            if (authStatusMsg) authStatusMsg.textContent = '';
         });
+
+        // Auth State Variables
+        let failedLoginAttempts = 0;
+
+        const authStatusMsg = document.getElementById('auth-status');
+        const forgotPasswordContainer = document.getElementById('forgot-password-container');
+        const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+        const resetSuccessMsg = document.getElementById('reset-success-msg');
+        const userPasswordInput = document.getElementById('userPassword');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const confirmPasswordGroup = document.getElementById('confirm-password-group');
+        const showPasswordToggle = document.getElementById('show-password-toggle');
+
+        if (showPasswordToggle) {
+            showPasswordToggle.addEventListener('change', (e) => {
+                const type = e.target.checked ? 'text' : 'password';
+                if (userPasswordInput) userPasswordInput.type = type;
+                if (confirmPasswordInput) confirmPasswordInput.type = type;
+            });
+        }
 
         // Handle Submission
-        authForm.addEventListener('submit', (e) => {
+        authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // Reset messages
+            authStatusMsg.textContent = '';
+            resetSuccessMsg.style.display = 'none';
+
             const btnOriginalText = authSubmitBtn.textContent;
             authSubmitBtn.textContent = 'Processing...';
+            // Disable button during processing
+            authSubmitBtn.disabled = true;
 
-            // Simulate network request
-            setTimeout(() => {
-                authView.classList.add('hidden');
-                calendarView.classList.remove('hidden');
-                authSubmitBtn.textContent = btnOriginalText;
-            }, 800);
+            const email = userEmailInput.value.trim().toLowerCase();
+            const password = userPasswordInput.value;
+
+            if (!isLoginMode) {
+                // SIGNUP LOGIC
+                if (password !== confirmPasswordInput.value) {
+                    authStatusMsg.textContent = "Passwords do not match. Please try again.";
+                    authSubmitBtn.textContent = btnOriginalText;
+                    authSubmitBtn.disabled = false;
+                    return;
+                }
+
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        emailRedirectTo: window.location.origin + '/booking.html'
+                    }
+                });
+
+                if (error) {
+                    authStatusMsg.textContent = error.message;
+                    authSubmitBtn.textContent = btnOriginalText;
+                    authSubmitBtn.disabled = false;
+                    return;
+                }
+
+                if (data.user) {
+                    // Create profile in Supabase
+                    const { error: profileError } = await supabase.from('profiles').insert([
+                        {
+                            id: data.user.id,
+                            email: email,
+                            parent_name: parentNameInput.value,
+                            child_name: childNameInput.value,
+                            country: userCountryInput.value,
+                            credits: 0
+                        }
+                    ]);
+
+                    if (profileError) {
+                        console.error('Error creating profile:', profileError);
+                    }
+
+                    await loginSuccess(email, parentNameInput.value, 0);
+                }
+
+            } else {
+                // LOGIN LOGIC
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password,
+                });
+
+                if (error) {
+                    failedLoginAttempts++;
+                    authStatusMsg.textContent = error.message || "Incorrect email or password. Please try again.";
+                    authSubmitBtn.textContent = btnOriginalText;
+                    authSubmitBtn.disabled = false;
+
+                    // 3-Strike Logic for Forgot Password
+                    if (failedLoginAttempts >= 3 && isLoginMode) {
+                        forgotPasswordContainer.style.display = 'block';
+                    }
+                    return;
+                }
+
+                // Successful Login
+                failedLoginAttempts = 0; // reset attempts
+                forgotPasswordContainer.style.display = 'none';
+
+                // Fetch profile to get name and credits
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                const credits = profile ? profile.credits : 0;
+                const parentName = profile ? profile.parent_name : "Parent";
+
+                await loginSuccess(email, parentName, credits);
+            }
+
+            // Re-enable button
+            authSubmitBtn.disabled = false;
         });
 
+        // Handle Forgot Password Click
+        if (forgotPasswordBtn) {
+            forgotPasswordBtn.addEventListener('click', async () => {
+                const email = userEmailInput.value.trim().toLowerCase();
+                if (!email) {
+                    authStatusMsg.textContent = "Please enter your email to reset your password.";
+                    return;
+                }
+
+                const btnOriginalText = forgotPasswordBtn.textContent;
+                forgotPasswordBtn.textContent = 'Sending...';
+
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + '/reset-password.html',
+                });
+
+                forgotPasswordBtn.textContent = btnOriginalText;
+
+                if (error) {
+                    authStatusMsg.textContent = error.message;
+                } else {
+                    resetSuccessMsg.style.display = 'block';
+                    authStatusMsg.textContent = '';
+                }
+            });
+        }
+
+        async function loginSuccess(email, name, credits) {
+            // Set the hidden field value for the contact form
+            const hiddenNameInput = document.getElementById('portal-name-hidden');
+            if (hiddenNameInput) {
+                hiddenNameInput.value = name;
+            }
+
+            // Set credits
+            userCredits = credits || 0;
+
+            // Fetch upcoming bookings
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data: bookings } = await supabase
+                    .from('bookings')
+                    .select('*')
+                    .eq('user_id', session.user.id);
+
+                if (bookings) {
+                    upcomingBookings = bookings.map(b => ({
+                        date: new Date(b.booking_date),
+                        isMonthly: b.is_monthly,
+                        id: b.id
+                    }));
+                }
+            }
+
+            updateDashboard();
+
+            // Transition UI
+            authView.classList.add('hidden');
+            calendarView.classList.remove('hidden');
+            authSubmitBtn.textContent = isLoginMode ? 'Log In' : 'Create Account';
+            authForm.reset();
+            forgotPasswordContainer.classList.add('hidden');
+            resetSuccessMsg.classList.add('hidden');
+        }
+
         // Logout
-        logoutBtn.addEventListener('click', () => {
+        logoutBtn.addEventListener('click', async () => {
+            await supabase.auth.signOut();
+
             calendarView.classList.add('hidden');
             authView.classList.remove('hidden');
             authForm.reset();
+
+            const hiddenNameInput = document.getElementById('portal-name-hidden');
+            if (hiddenNameInput) {
+                hiddenNameInput.value = "Unknown Client";
+            }
         });
     }
 
@@ -289,35 +504,71 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePurchaseQtyDisplay();
     });
 
-    buySingleBtn.addEventListener('click', () => {
-        const cost = purchaseQty * PRICE_PER_LESSON;
-        // Mock payment flow
+    buySingleBtn.addEventListener('click', async () => {
         const btnOriginal = buySingleBtn.innerHTML;
         buySingleBtn.textContent = 'Processing...';
 
-        setTimeout(() => {
-            userCredits += purchaseQty;
-            updateDashboard();
-            buySingleBtn.innerHTML = btnOriginal;
-            alert(`Successfully purchased ${purchaseQty} lesson credit(s) for $${cost}!`);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-            // Reset qty
-            purchaseQty = 1;
-            updatePurchaseQtyDisplay();
-        }, 800);
+        try {
+            const response = await fetch('/.netlify/functions/create-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quantity: purchaseQty,
+                    userId: session.user.id,
+                    userEmail: session.user.email,
+                    successUrl: window.location.origin + '/booking.html?payment=success',
+                    cancelUrl: window.location.origin + '/booking.html?payment=cancel'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.url) {
+                window.location.href = data.url; // Redirect to Stripe Checkout
+            } else {
+                throw new Error(data.error || 'Failed to generate checkout session');
+            }
+        } catch (error) {
+            alert('Payment initialization failed: ' + error.message);
+            buySingleBtn.innerHTML = btnOriginal;
+        }
     });
 
-    buyBundleBtn.addEventListener('click', () => {
-        // Mock payment flow
+    buyBundleBtn.addEventListener('click', async () => {
         const btnOriginal = buyBundleBtn.textContent;
         buyBundleBtn.textContent = 'Processing...';
 
-        setTimeout(() => {
-            userCredits += 10;
-            updateDashboard();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        try {
+            // Bundle uses a quantity of 10 to trigger the discounted logic in the serverless function
+            const response = await fetch('/.netlify/functions/create-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quantity: 10,
+                    userId: session.user.id,
+                    userEmail: session.user.email,
+                    successUrl: window.location.origin + '/booking.html?payment=success',
+                    cancelUrl: window.location.origin + '/booking.html?payment=cancel'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.url) {
+                window.location.href = data.url; // Redirect to Stripe Checkout
+            } else {
+                throw new Error(data.error || 'Failed to generate checkout session');
+            }
+        } catch (error) {
+            alert('Payment initialization failed: ' + error.message);
             buyBundleBtn.textContent = btnOriginal;
-            alert(`Successfully purchased the 10-Lesson Bundle for $270!`);
-        }, 800);
+        }
     });
 
     // ---- Booking Modal Logic ----
@@ -364,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedDate = null;
     });
 
-    confirmBookingBtn.addEventListener('click', () => {
+    confirmBookingBtn.addEventListener('click', async () => {
         const isMonthly = bookMonthlyCheckbox.checked;
         const requiredCredits = isMonthly ? 4 : 1;
 
@@ -376,20 +627,53 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnOriginal = confirmBookingBtn.textContent;
         confirmBookingBtn.textContent = 'Booking...';
 
-        setTimeout(() => {
-            // Deduct credits
-            userCredits -= requiredCredits;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-            // Add the new booking(s)
-            if (isMonthly) {
-                for (let i = 0; i < 4; i++) {
-                    const nextDate = new Date(selectedDate);
-                    nextDate.setDate(selectedDate.getDate() + (i * 7));
-                    upcomingBookings.push({ date: nextDate, isMonthly: true });
-                }
-            } else {
-                upcomingBookings.push({ date: selectedDate, isMonthly: false });
+        // Create booking records
+        const bookingInserts = [];
+        if (isMonthly) {
+            for (let i = 0; i < 4; i++) {
+                const nextDate = new Date(selectedDate);
+                nextDate.setDate(selectedDate.getDate() + (i * 7));
+                bookingInserts.push({
+                    user_id: session.user.id,
+                    booking_date: nextDate.toISOString(),
+                    is_monthly: true,
+                    status: 'confirmed'
+                });
             }
+        } else {
+            bookingInserts.push({
+                user_id: session.user.id,
+                booking_date: selectedDate.toISOString(),
+                is_monthly: false,
+                status: 'confirmed'
+            });
+        }
+
+        const { error: bookingError } = await supabase.from('bookings').insert(bookingInserts);
+
+        if (bookingError) {
+            confirmBookingBtn.textContent = btnOriginal;
+            alert('Failed to save booking. Please try again.');
+            return;
+        }
+
+        // Deduct credits
+        const newCredits = userCredits - requiredCredits;
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ credits: newCredits })
+            .eq('id', session.user.id);
+
+        if (!profileError) {
+            userCredits = newCredits;
+
+            // Add to local UI array
+            bookingInserts.forEach(b => {
+                upcomingBookings.push({ date: new Date(b.booking_date), isMonthly: b.is_monthly });
+            });
 
             updateDashboard();
 
@@ -400,7 +684,10 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(isMonthly
                 ? 'Monthly slot secured! 4 credits deducted.'
                 : 'Lesson booked! 1 credit deducted.');
-        }, 800);
+        } else {
+            confirmBookingBtn.textContent = btnOriginal;
+            alert('Failed to update credits.');
+        }
     });
 
 });

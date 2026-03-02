@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Policies | Teacher Andrew</title>
+    <meta name="description"
+        content="View the cancellation, refund, and behaviour policies for Teacher Andrew's Geography Tutoring.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+        rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Phosphor Icons for UI Elements -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        .policies-main {
+            padding: 6rem 1rem;
+            background: var(--bg-light);
+            min-height: calc(100vh - 150px);
+        }
+
+        .policies-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 3rem 4rem;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        @media (max-width: 768px) {
+            .policies-container {
+                padding: 2rem 1.5rem;
+            }
+        }
+
+        .policies-title {
+            font-family: var(--font-heading);
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .policy-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .policy-section h2 {
+            font-size: 1.5rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+            font-family: var(--font-heading);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 0.5rem;
+            display: inline-block;
+        }
+
+        .policy-section p {
+            color: var(--text-color);
+            line-height: 1.7;
+            font-size: 1.05rem;
+        }
+
+        .highlight-notice {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <header class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <i class="ph ph-globe-hemisphere-west"></i>
+                Teacher Andrew
+            </a>
+            <nav class="nav-links">
+                <a href="index.html#services">Services</a>
+                <a href="index.html#reviews">Reviews</a>
+                <a href="index.html#about">About Me</a>
+                <a href="blog.html">Blog</a>
+                <a href="booking.html" style="font-weight: 600; color: var(--primary-color);">Booking Portal</a>
+                <a href="index.html#contact" class="btn btn-primary">Contact</a>
+            </nav>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <i class="ph ph-list"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="policies-main">
+        <div class="policies-container reveal active">
+            <h1 class="policies-title">Policies</h1>
+
+            <div class="policy-section">
+                <h2>Cancellation Policy</h2>
+                <p>Students must notify the teacher via message or email at least 24 hours before a scheduled lesson in
+                    order to reschedule the lesson for another date. This policy ensures fairness, as the teacher
+                    understands that other commitments may arise, and allows sufficient time to make necessary
+                    preparations for other students.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>Refund Policy</h2>
+                <p>Unused hours under the pay-as-you-go option are eligible for a refund, provided the lesson(s) are
+                    cancelled at least 24 hours in advance.</p>
+
+                <div class="highlight-notice">
+                    <p><strong>10-Lesson Bundle Packages:</strong> The 10-lesson bundle package, which includes a 10%
+                        discount, is a committed service and is therefore <strong>non-refundable</strong>. However, the
+                        lessons you purchase have <strong>no expiry date</strong> and can be used at any time in the
+                        future.</p>
+                </div>
+            </div>
+
+            <div class="policy-section">
+                <h2>Behaviour Policy</h2>
+                <p>Strictly no abusive language or violent behaviour will be tolerated from either students or parents.
+                    The teacher reserves the right to end lessons permanently at his or her discretion. Repeated
+                    misconduct may result in permanent termination of lessons without refund.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>Privacy & Security</h2>
+                <p>Personal information of students and their families will be kept strictly confidential. The teacher
+                    will conduct all lessons in a professional environment, and students are expected to participate
+                    from a safe, distraction-free space. Recording of lessons is not permitted without the teacher’s
+                    prior consent.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container footer-content">
+            <div class="footer-logo">
+                <i class="ph ph-globe-hemisphere-west"></i>
+                <span>Teacher Andrew</span>
+            </div>
+            <div class="footer-links" style="margin-top: 0.5rem; text-align: center;">
+                <a href="policies.html"
+                    style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.9rem; transition: color 0.3s;"
+                    onmouseover="this.style.color='#fff'"
+                    onmouseout="this.style.color='rgba(255,255,255,0.7)'">Policies</a>
+            </div>
+            <p style="margin-top: 0.5rem;">&copy; 2024 Teacher Andrew. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

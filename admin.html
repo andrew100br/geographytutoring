@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutor Dashboard | Teacher Andrew</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600&display=swap"
+        rel="stylesheet">
+
+    <!-- Custom CSS (Core UI + Admin Specific) -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body class="admin-body">
+
+    <!-- Login Overlay -->
+    <div id="admin-login-overlay" class="admin-login-overlay">
+        <div class="admin-login-box">
+            <h2><i class="ph ph-shield-check"></i> Admin Portal</h2>
+            <form id="admin-login-form">
+                <div class="form-group" style="text-align: left;">
+                    <label for="admin-user">Username</label>
+                    <input type="text" id="admin-user" required placeholder="admin">
+                </div>
+                <div class="form-group" style="text-align: left;">
+                    <label for="admin-pass">Password</label>
+                    <input type="password" id="admin-pass" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full" style="margin-top: 1rem;">Secure Login</button>
+                <p id="admin-error" style="color: #dc2626; margin-top: 1rem; font-size: 0.9rem;"></p>
+                <div style="margin-top: 2rem; font-size: 0.8rem; color: #64748b;">
+                    <p>Hint: Use <strong>admin</strong> / <strong>password123</strong> to view the mockup.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <div class="admin-logo">
+            <i class="ph ph-globe-hemisphere-west"></i>
+            Tutor Admin
+        </div>
+        <nav class="admin-nav">
+            <a href="#" class="admin-nav-item active"><i class="ph ph-squares-four"></i> Dashboard</a>
+            <a href="index.html" class="admin-nav-item"><i class="ph ph-arrow-left"></i> Back to Site</a>
+        </nav>
+        <div style="margin-top: auto;">
+            <button id="admin-logout-btn" class="btn btn-outline"
+                style="width: 100%; border-color: rgba(255,255,255,0.2); color: white;">Log Out</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h3>Overview</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="profile-photo.jpg" alt="Andrew"
+                    style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                <span style="font-weight: 500;">Teacher Andrew</span>
+            </div>
+        </header>
+
+        <div class="admin-content">
+            <!-- Stats Row -->
+            <div class="admin-stats-grid">
+                <div class="admin-stat-card">
+                    <div class="admin-stat-icon"><i class="ph ph-users"></i></div>
+                    <div class="admin-stat-info">
+                        <h3>Total Students</h3>
+                        <p id="stat-students">0</p>
+                    </div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="ph ph-coins"></i>
+                    </div>
+                    <div class="admin-stat-info">
+                        <h3>Outstanding Credits</h3>
+                        <p id="stat-credits">0</p>
+                    </div>
+                </div>
+                <!-- Simulated Revenue based on $30/lesson -->
+                <div class="admin-stat-card">
+                    <div class="admin-stat-icon" style="background:#fef5e7; color:#d97706;"><i
+                            class="ph ph-currency-dollar"></i></div>
+                    <div class="admin-stat-info">
+                        <h3>Est. Revenue Value</h3>
+                        <p id="stat-revenue">$0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students Data Table -->
+            <h2 class="admin-section-title">Registered Students Database</h2>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Student (Child)</th>
+                            <th>Parent Contact</th>
+                            <th>Email</th>
+                            <th>Location</th>
+                            <th>Credit Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-table-body">
+                        <!-- Populated by JS -->
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #64748b;">Loading data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p style="margin-top: 2rem; font-size: 0.9rem; color: #64748b;"><i class="ph ph-info"></i> Note: Because
+                this site lacks a backend server, this dashboard reads from your local browser storage. It displays the
+                test accounts simulated on this device.</p>
+        </div>
+    </main>
+
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="admin.js"></script>
+</body>
+
+</html>

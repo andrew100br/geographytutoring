@@ -18,6 +18,10 @@
 
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="booking.js" defer></script>
 </head>
 
 <body class="booking-page">
@@ -30,9 +34,16 @@
                 Teacher Andrew
             </a>
             <nav class="nav-links">
+                <a href="index.html#services">Services</a>
+                <a href="index.html#reviews">Reviews</a>
+                <a href="index.html#about">About Me</a>
                 <a href="blog.html">Blog</a>
-                <a href="index.html">Back to Home</a>
+                <a href="booking.html" style="font-weight: 600; color: var(--primary-color);">Booking Portal</a>
+                <a href="index.html#contact" class="btn btn-primary">Contact</a>
             </nav>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <i class="ph ph-list"></i>
+            </button>
         </div>
     </header>
 
@@ -72,8 +83,30 @@
                         <label for="userPassword">Password</label>
                         <input type="password" id="userPassword" placeholder="••••••••" required>
                     </div>
+                    <div class="form-group" id="confirm-password-group" style="display: none;">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" placeholder="••••••••">
+                    </div>
+                    <div style="margin-bottom: 1rem; text-align: right;">
+                        <label
+                            style="font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="show-password-toggle"> Show Passwords
+                        </label>
+                    </div>
+
+                    <div id="forgot-password-container" style="display: none; text-align: right; margin-bottom: 1rem;">
+                        <button type="button" id="forgot-password-btn"
+                            style="background: none; border: none; color: var(--primary-color); text-decoration: underline; cursor: pointer; font-size: 0.9rem;">Forgot
+                            Password?</button>
+                    </div>
+
+                    <p class="form-status" id="auth-status"
+                        style="margin-bottom: 1rem; color: #dc2626; text-align: center;"></p>
                     <button type="submit" class="btn btn-primary btn-full" id="auth-submit-btn">Create Account</button>
-                    <p class="form-status" id="auth-status"></p>
+                    <p id="reset-success-msg"
+                        style="display: none; margin-top: 1rem; color: #16a34a; text-align: center; font-size: 0.9rem; padding: 0.5rem; background: #dcfce7; border-radius: 4px; border: 1px solid #86efac;">
+                        <i class="ph ph-check-circle"></i> A password reset link has been sent to your registered email.
+                    </p>
                 </form>
             </div>
 
@@ -89,7 +122,7 @@
                     <div class="dashboard-stats">
                         <div class="stat-card">
                             <h3><i class="ph ph-coins"></i> Credit Balance</h3>
-                            <p class="stat-large" id="credit-balance-display">10</p>
+                            <p class="stat-large" id="credit-balance-display">0</p>
                             <p class="stat-label">Lessons Remaining</p>
                         </div>
                         <div class="stat-card highlight-stat">
@@ -164,6 +197,8 @@
                     </div>
                 </div>
 
+
+
                 <div class="calendar-wrapper">
                     <div class="calendar-meta">
                         <p>Showing availability in your local timezone: <strong id="user-timezone"
@@ -185,7 +220,6 @@
                     </div>
                 </div>
 
-                <!-- Booking Confirmation Modal / Overlay -->
                 <div class="booking-modal hidden" id="booking-modal">
                     <div class="modal-content">
                         <h3>Confirm Booking</h3>
@@ -213,6 +247,32 @@
                     </div>
                 </div>
 
+                <!-- Contact Tutor Section -->
+                <div class="user-dashboard" id="contact-tutor-section" style="margin-top: 2rem; margin-bottom: 2rem;">
+                    <div style="margin-bottom: 1rem;">
+                        <h3><i class="ph ph-envelope-simple"></i> Message Teacher Andrew</h3>
+                        <p style="color: #64748b; font-size: 0.95rem;">Have a question about an upcoming lesson or need
+                            to reschedule? Send a secure message directly to my inbox.</p>
+                    </div>
+
+                    <form action="https://formsubmit.co/andrew100br@gmail.com" method="POST" id="portal-contact-form"
+                        class="booking-form" style="max-width: 100%; box-shadow: none; padding: 0; margin-top: 1rem;">
+                        <input type="hidden" name="_captcha" value="false">
+                        <input type="hidden" name="_subject" value="Message from Booking Portal Client">
+                        <input type="hidden" name="_next" value="https://geographytutoring.netlify.app/booking.html">
+
+                        <!-- Hidden name input mapped to FormSubmit via name attribute -->
+                        <input type="hidden" id="portal-name-hidden" name="Client Name" value="Unknown Client">
+
+                        <div class="form-group">
+                            <label for="portal-message">Message</label>
+                            <textarea id="portal-message" name="message" rows="3" required
+                                placeholder="Type your message here..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-secondary">Send Message</button>
+                    </form>
+                </div>
+
                 <div class="auth-header" style="text-align: center; margin-top: 2rem;">
                     <button id="logout-btn" class="btn btn-outline">Log Out</button>
                 </div>
@@ -227,11 +287,17 @@
                 <i class="ph ph-globe-hemisphere-west"></i>
                 <span>Teacher Andrew</span>
             </div>
-            <p>&copy; 2024 Teacher Andrew. All rights reserved.</p>
+            <div class="footer-links" style="margin-top: 0.5rem; text-align: center;">
+                <a href="policies.html"
+                    style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.9rem; transition: color 0.3s;"
+                    onmouseover="this.style.color='#fff'"
+                    onmouseout="this.style.color='rgba(255,255,255,0.7)'">Policies</a>
+            </div>
+            <p style="margin-top: 0.5rem;">&copy; 2024 Teacher Andrew. All rights reserved.</p>
         </div>
     </footer>
 
-    <script src="booking.js"></script>
+    <!-- Scripts are now in the head -->
 </body>
 
 </html>

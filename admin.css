@@ -1,0 +1,205 @@
+/* Admin Dashboard Styles */
+:root {
+    --admin-primary: #1e293b;
+    --admin-sidebar: #0f172a;
+    --admin-bg: #f8fafc;
+    --admin-text: #334155;
+    --admin-border: #e2e8f0;
+}
+
+body.admin-body {
+    background-color: var(--admin-bg);
+    color: var(--admin-text);
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Login Overlay */
+.admin-login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.admin-login-box {
+    background: white;
+    padding: 3rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.admin-login-box h2 {
+    color: var(--admin-primary);
+    margin-bottom: 2rem;
+}
+
+/* Layout */
+.admin-sidebar {
+    width: 250px;
+    background: var(--admin-sidebar);
+    color: white;
+    padding: 2rem 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-family: 'Playfair Display', serif;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 2rem;
+}
+
+.admin-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.admin-nav-item {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    color: #cbd5e1;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.admin-nav-item:hover,
+.admin-nav-item.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.admin-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.admin-header {
+    background: white;
+    padding: 1.5rem 3rem;
+    border-bottom: 1px solid var(--admin-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-content {
+    padding: 3rem;
+}
+
+/* Stats Cards */
+.admin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.admin-stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--admin-border);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.admin-stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+}
+
+.admin-stat-info h3 {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.admin-stat-info p {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--admin-primary);
+}
+
+/* Tables */
+.admin-section-title {
+    margin-bottom: 1.5rem;
+    color: var(--admin-primary);
+}
+
+.admin-table-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--admin-border);
+    overflow: hidden;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th {
+    background: #f8fafc;
+    padding: 1rem 1.5rem;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--admin-border);
+    vertical-align: middle;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.badge-credit {
+    background: #dcfce7;
+    color: #166534;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}

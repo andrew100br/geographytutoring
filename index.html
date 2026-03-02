@@ -403,13 +403,7 @@
                                     Portal</a>
                             </div>
                         </div>
-                        <div class="method" style="margin-top: 2rem;">
-                            <div class="method-icon"><i class="ph ph-envelope-simple"></i></div>
-                            <div>
-                                <h4>Email Me</h4>
-                                <p>andrew100br@example.com</p>
-                            </div>
-                        </div>
+
                         <div class="method">
                             <div class="method-icon"><i class="ph ph-clock"></i></div>
                             <div>
@@ -421,7 +415,14 @@
                 </div>
 
                 <div class="contact-form-wrapper reveal reveal-delay">
-                    <form id="booking-form" class="booking-form">
+                    <form action="https://formsubmit.co/andrew100br@gmail.com" method="POST" id="booking-form"
+                        class="booking-form">
+                        <!-- Disables captcha and adds a hidden redirect to prevent leaving page ungracefully, though JS can handle this too -->
+                        <input type="hidden" name="_captcha" value="false">
+                        <input type="hidden" name="_subject" value="New Teacher Andrew Inquiry!">
+                        <input type="hidden" name="_next" value="https://geographytutoring.netlify.app">
+                        <!-- You can change to a success page later -->
+
                         <h3>Send a Message</h3>
                         <div class="form-group">
                             <label for="name">Parent/Student Name</label>
@@ -459,7 +460,10 @@
                 <i class="ph ph-globe-hemisphere-west"></i>
                 <span>Teacher Andrew</span>
             </div>
-            <p>&copy; 2024 Teacher Andrew. All rights reserved.</p>
+            <div class="footer-links" style="margin-top: 0.5rem; text-align: center;">
+                <a href="policies.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Policies</a>
+            </div>
+            <p style="margin-top: 0.5rem;">&copy; 2024 Teacher Andrew. All rights reserved.</p>
         </div>
     </footer>
 
