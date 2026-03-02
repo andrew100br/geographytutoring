@@ -1,0 +1,15 @@
+{
+  "name": "geography-tutoring",
+  "version": "1.0.0",
+  "description": " Geography Tutoring Website",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Andrew",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "stripe": "^14.10.0"
+  }
+}
