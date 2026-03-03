@@ -22,6 +22,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
     <script src="booking.js" defer></script>
+
+    <!-- Handle Password Reset Redirect Fallback -->
+    <script>
+        if (window.location.hash.includes('type=recovery')) {
+            window.location.href = '/reset-password.html' + window.location.hash;
+        }
+    </script>
 </head>
 
 <body class="booking-page">

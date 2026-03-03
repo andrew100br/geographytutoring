@@ -20,6 +20,13 @@
 
     <!-- Phosphor Icons for UI Elements -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Handle Password Reset Redirect Fallback -->
+    <script>
+        if (window.location.hash.includes('type=recovery')) {
+            window.location.href = '/reset-password.html' + window.location.hash;
+        }
+    </script>
 </head>
 
 <body>
