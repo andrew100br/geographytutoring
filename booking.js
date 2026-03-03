@@ -79,17 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const credits = profile ? profile.credits : 0;
         const parentName = profile ? profile.parent_name : "Parent";
 
-        // We can reuse loginSuccess logic manually here
-        userCredits = credits;
-        updateDashboard();
-
-        const hiddenNameInput = document.getElementById('portal-name-hidden');
-        if (hiddenNameInput) {
-            hiddenNameInput.value = parentName;
-        }
-
-        authView.classList.add('hidden');
-        calendarView.classList.remove('hidden');
+        await loginSuccess(session.user.email, parentName, credits);
     }
 
     // ---- Auth Logic ----
@@ -280,46 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        async function loginSuccess(email, name, credits) {
-            // Set the hidden field value for the contact form
-            const hiddenNameInput = document.getElementById('portal-name-hidden');
-            if (hiddenNameInput) {
-                hiddenNameInput.value = name;
-            }
-
-            // Set credits
-            userCredits = credits || 0;
-
-            // Fetch upcoming bookings
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                const { data: bookings } = await supabase
-                    .from('bookings')
-                    .select('*')
-                    .eq('user_id', session.user.id);
-
-                if (bookings) {
-                    upcomingBookings = bookings.map(b => ({
-                        date: new Date(b.booking_date),
-                        isMonthly: b.is_monthly,
-                        id: b.id
-                    }));
-                }
-
-                // Fetch messages
-                await fetchAndRenderMessages(session.user.id);
-            }
-
-            updateDashboard();
-
-            // Transition UI
-            authView.classList.add('hidden');
-            calendarView.classList.remove('hidden');
-            authSubmitBtn.textContent = isLoginMode ? 'Log In' : 'Create Account';
-            authForm.reset();
-            forgotPasswordContainer.classList.add('hidden');
-            resetSuccessMsg.classList.add('hidden');
-        }
+        // Logout moved outside if needed, but it's fine here as it's just an event listener.
 
         // Logout
         logoutBtn.addEventListener('click', async () => {
@@ -334,6 +285,47 @@ document.addEventListener('DOMContentLoaded', async () => {
                 hiddenNameInput.value = "Unknown Client";
             }
         });
+    }
+
+    async function loginSuccess(email, name, credits) {
+        // Set the hidden field value for the contact form
+        const hiddenNameInput = document.getElementById('portal-name-hidden');
+        if (hiddenNameInput) {
+            hiddenNameInput.value = name;
+        }
+
+        // Set credits
+        userCredits = credits || 0;
+
+        // Fetch upcoming bookings
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const { data: bookings } = await supabase
+                .from('bookings')
+                .select('*')
+                .eq('user_id', session.user.id);
+
+            if (bookings) {
+                upcomingBookings = bookings.map(b => ({
+                    date: new Date(b.booking_date),
+                    isMonthly: b.is_monthly,
+                    id: b.id
+                }));
+            }
+
+            // Fetch messages
+            await fetchAndRenderMessages(session.user.id);
+        }
+
+        updateDashboard();
+
+        // Transition UI
+        authView.classList.add('hidden');
+        calendarView.classList.remove('hidden');
+        authSubmitBtn.textContent = isLoginMode ? 'Log In' : 'Create Account';
+        authForm.reset();
+        if (forgotPasswordContainer) forgotPasswordContainer.classList.add('hidden');
+        if (resetSuccessMsg) resetSuccessMsg.classList.add('hidden');
     }
 
     // ---- Calendar & Timezone Logic ----
@@ -793,7 +785,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (error) {
                 console.error("Failed to send message", error);
-                alert("Failed to send message: " + (error.message || JSON.stringify(error)));
+                alert("Failed to send message. Please try again.");
             } else {
                 input.value = '';
                 // Reload messages
