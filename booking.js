@@ -71,14 +71,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ---- Session Check ----
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-        const { data: profile } = await supabase
+        let { data: profile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
 
-        const credits = profile ? profile.credits : 0;
-        const parentName = profile ? profile.parent_name : "Parent";
+        let credits = 0;
+        let parentName = "Parent";
+
+        if (!profile) {
+            // Profile is missing, meaning they signed up with email confirmation and are now logging in
+            const pendingProfileStr = localStorage.getItem('pending_signup_profile');
+            let pData = { parent_name: 'Parent', child_name: '', country: '' };
+            if (pendingProfileStr) {
+                pData = JSON.parse(pendingProfileStr);
+            }
+
+            const { error: insertError } = await supabase.from('profiles').insert([
+                {
+                    id: session.user.id,
+                    email: session.user.email,
+                    parent_name: pData.parent_name,
+                    child_name: pData.child_name,
+                    country: pData.country,
+                    credits: 0
+                }
+            ]);
+
+            if (!insertError) {
+                localStorage.removeItem('pending_signup_profile');
+                parentName = pData.parent_name;
+            } else {
+                console.error("Failed to create delayed profile:", insertError);
+            }
+        } else {
+            credits = profile.credits || 0;
+            parentName = profile.parent_name || "Parent";
+        }
 
         await loginSuccess(session.user.email, parentName, credits);
     } else {
@@ -206,6 +236,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await loginSuccess(email, parentNameInput.value, 0);
                 } else if (data.user) {
                     // Supabase requires email confirmation
+                    localStorage.setItem('pending_signup_profile', JSON.stringify({
+                        parent_name: parentNameInput.value,
+                        child_name: childNameInput.value,
+                        country: userCountryInput.value
+                    }));
+
                     authStatusMsg.innerHTML = "<strong>Success, but hold on!</strong><br/>Please check your email and click the confirmation link before logging in.";
                     authSubmitBtn.textContent = btnOriginalText;
                     authSubmitBtn.disabled = false;
@@ -243,8 +279,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                     .eq('id', data.user.id)
                     .single();
 
-                const credits = profile ? profile.credits : 0;
-                const parentName = profile ? profile.parent_name : "Parent";
+                let credits = 0;
+                let parentName = "Parent";
+
+                if (!profile) {
+                    const pendingProfileStr = localStorage.getItem('pending_signup_profile');
+                    let pData = { parent_name: 'Parent', child_name: '', country: '' };
+                    if (pendingProfileStr) {
+                        pData = JSON.parse(pendingProfileStr);
+                    }
+
+                    const { error: insertError } = await supabase.from('profiles').insert([
+                        {
+                            id: data.user.id,
+                            email: email,
+                            parent_name: pData.parent_name,
+                            child_name: pData.child_name,
+                            country: pData.country,
+                            credits: 0
+                        }
+                    ]);
+
+                    if (!insertError) {
+                        localStorage.removeItem('pending_signup_profile');
+                        parentName = pData.parent_name;
+                    } else {
+                        console.error('Error creating profile on login:', insertError);
+                    }
+                } else {
+                    credits = profile.credits || 0;
+                    parentName = profile.parent_name || "Parent";
+                }
 
                 await loginSuccess(email, parentName, credits);
             }
