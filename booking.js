@@ -69,52 +69,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateDashboard();
 
     // ---- Session Check ----
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        let { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+    try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        const session = data?.session;
 
-        let credits = 0;
-        let parentName = "Parent";
+        if (session) {
+            let { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
 
-        if (!profile) {
-            // Profile is missing, meaning they signed up with email confirmation and are now logging in
-            const pendingProfileStr = localStorage.getItem('pending_signup_profile');
-            let pData = { parent_name: 'Parent', child_name: '', country: '' };
-            if (pendingProfileStr) {
-                try {
-                    pData = JSON.parse(pendingProfileStr);
-                } catch (e) { console.error(e); }
-            }
+            let credits = 0;
+            let parentName = "Parent";
 
-            const { error: insertError } = await supabase.from('profiles').insert([
-                {
-                    id: session.user.id,
-                    email: session.user.email,
-                    parent_name: pData.parent_name,
-                    child_name: pData.child_name,
-                    country: pData.country,
-                    credits: 0
+            if (!profile) {
+                // Profile is missing, meaning they signed up with email confirmation and are now logging in
+                const pendingProfileStr = localStorage.getItem('pending_signup_profile');
+                let pData = { parent_name: 'Parent', child_name: '', country: '' };
+                if (pendingProfileStr) {
+                    try {
+                        pData = JSON.parse(pendingProfileStr);
+                    } catch(e) { console.error("Parse error pending profile", e); }
                 }
-            ]);
 
-            if (!insertError) {
-                localStorage.removeItem('pending_signup_profile');
-                parentName = pData.parent_name;
+                const { error: insertError } = await supabase.from('profiles').insert([
+                    {
+                        id: session.user.id,
+                        email: session.user.email,
+                        parent_name: pData.parent_name,
+                        child_name: pData.child_name,
+                        country: pData.country,
+                        credits: 0
+                    }
+                ]);
+
+                if (!insertError) {
+                    localStorage.removeItem('pending_signup_profile');
+                    parentName = pData.parent_name;
+                } else {
+                    console.error("Failed to create delayed profile:", insertError);
+                }
             } else {
-                console.error("Failed to create delayed profile:", insertError);
+                credits = profile.credits || 0;
+                parentName = profile.parent_name || "Parent";
             }
-        } else {
-            credits = profile.credits || 0;
-            parentName = profile.parent_name || "Parent";
-        }
 
-        await loginSuccess(session.user.email, parentName, credits);
-    } else {
-        authView.classList.remove('hidden');
+            await loginSuccess(session.user.email, parentName, credits);
+        } else {
+            console.log("No active session found. Showing login view.");
+            if (authView) authView.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error("Critical error during session load:", err);
+        // Fallback: force show the auth screen if possible
+        if (authView) authView.classList.remove('hidden');
     }
 
     // ---- Auth Logic ----
