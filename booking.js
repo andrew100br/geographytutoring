@@ -629,7 +629,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 bubbleBox.style.alignSelf = 'flex-end';
                 bubble.style.background = 'var(--primary-color)';
-                bubble.style.color = '#fff';
+                bubble.style.color = '#000'; // Changed to black for better visibility
                 timeLabel.style.alignSelf = 'flex-end';
             }
 

@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Admin (Me) is sending
                 bubbleBox.style.alignSelf = 'flex-end';
                 bubble.style.background = 'var(--primary-color)';
-                bubble.style.color = '#fff';
+                bubble.style.color = '#000';
                 timeLabel.style.alignSelf = 'flex-end';
             } else {
                 // Student is sending
