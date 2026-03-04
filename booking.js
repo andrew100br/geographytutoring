@@ -844,11 +844,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 btn.innerHTML = '...';
                 btn.disabled = true;
 
-                const { error } = await supabase.from('messages').insert([{
-                    user_id: session.user.id,
-                    content: content,
-                    is_from_admin: false
-                }]);
+                let error = null;
+                try {
+                    const pendingProfileStr = localStorage.getItem('pending_signup_profile');
+                    const res = await fetch('/.netlify/functions/student-action', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-pending-profile': pendingProfileStr || ''
+                        },
+                        body: JSON.stringify({
+                            action: 'send_message',
+                            token: session.access_token,
+                            data: { content }
+                        })
+                    });
+
+                    if (!res.ok) {
+                        const errorObj = await res.json();
+                        throw new Error(errorObj.error || "Failed to deliver message securely.");
+                    }
+                } catch (err) {
+                    error = err;
+                }
 
                 btn.innerHTML = originalText;
                 btn.disabled = false;

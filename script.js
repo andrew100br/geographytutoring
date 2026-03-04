@@ -142,32 +142,52 @@ document.addEventListener('DOMContentLoaded', () => {
     const formStatus = document.getElementById('form-status');
 
     if (bookingForm) {
-        bookingForm.addEventListener('submit', (e) => {
-            e.preventDefault(); // Prevent actual submission to server
+        bookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Prevent basic submission
 
             const submitBtn = bookingForm.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerText;
 
-            // Simulate sending state
             submitBtn.innerText = 'Sending...';
             submitBtn.disabled = true;
 
-            // Simulate network request
-            setTimeout(() => {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim().toLowerCase();
+            const service = document.getElementById('service').value;
+            const message = document.getElementById('message').value.trim();
+            const fullMessage = `Interested Service: ${service}\n\n${message}`;
+
+            try {
+                const res = await fetch('/.netlify/functions/public-action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'submit_contact_form',
+                        data: { name, email, message: fullMessage }
+                    })
+                });
+
+                if (!res.ok) {
+                    throw new Error("Failed to send inquiry.");
+                }
+
                 formStatus.style.color = 'green';
                 formStatus.style.marginTop = '1rem';
-                formStatus.innerText = 'Thank you! Your inquiry has been sent. Teacher Andrew will be in touch soon.';
+                formStatus.innerText = 'Thank you! Your inquiry has been sent. Teacher Andrew will reply via the portal soon.';
 
-                // Reset form
                 bookingForm.reset();
+            } catch (err) {
+                console.error(err);
+                formStatus.style.color = '#dc2626';
+                formStatus.style.marginTop = '1rem';
+                formStatus.innerText = 'Error sending inquiry. Please try again later.';
+            } finally {
                 submitBtn.innerText = originalText;
                 submitBtn.disabled = false;
-
-                // Clear message after 5 seconds
                 setTimeout(() => {
                     formStatus.innerText = '';
                 }, 5000);
-            }, 1000);
+            }
         });
     }
 
