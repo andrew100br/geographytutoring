@@ -23,6 +23,52 @@ exports.handler = async (event, context) => {
         // Initialize Supabase admin client to bypass RLS policies safely
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+        if (action === 'get_dashboard_data') {
+            const { data: profiles, error } = await supabase.from('profiles').select('*');
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ profiles }) };
+        }
+
+        if (action === 'delete_user') {
+            const { userId } = payload;
+
+            // Cleanup foreign keys first
+            await supabase.from('bookings').delete().eq('user_id', userId);
+            await supabase.from('messages').delete().eq('user_id', userId);
+            await supabase.from('profiles').delete().eq('id', userId);
+
+            // Delete from Auth
+            const { error } = await supabase.auth.admin.deleteUser(userId);
+            if (error) throw error;
+
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'add_user') {
+            const { email, password, childName, parentName, country } = payload;
+
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email: email,
+                password: password,
+                email_confirm: true
+            });
+
+            if (authError) throw authError;
+
+            const { error: profileError } = await supabase.from('profiles').insert([{
+                id: authData.user.id,
+                email: email,
+                child_name: childName,
+                parent_name: parentName,
+                country: country,
+                credits: 0
+            }]);
+
+            if (profileError) throw profileError;
+
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
         if (action === 'send_message') {
             const { userId, content } = payload;
             const { error } = await supabase.from('messages').insert([{

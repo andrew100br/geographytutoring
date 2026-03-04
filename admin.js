@@ -53,8 +53,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Dashboard Data Loading ----
 
     async function loadDashboardData() {
-        // Fetch profiles from Supabase
-        const { data: accounts, error } = await supabase.from('profiles').select('*');
+        let accounts = [];
+        let error = null;
+
+        try {
+            const res = await fetch('/.netlify/functions/admin-action', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'get_dashboard_data',
+                    password: MOCK_ADMIN_PASS
+                })
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const data = await res.json();
+            accounts = data.profiles || [];
+        } catch (err) {
+            console.error('Failed to load dashboard data:', err);
+            error = err;
+        }
 
         let totalStudents = accounts ? accounts.length : 0;
         let totalCredits = 0;
@@ -112,8 +128,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 msgBtn.innerHTML = '<i class="ph ph-chat-circle-dots"></i> Message';
                 msgBtn.onclick = () => openAdminChat(data.id, data.child_name || data.parent_name);
 
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-outline';
+                deleteBtn.style.padding = '0.3rem 0.8rem';
+                deleteBtn.style.fontSize = '0.8rem';
+                deleteBtn.style.color = '#dc2626';
+                deleteBtn.style.borderColor = '#fca5a5';
+                deleteBtn.innerHTML = '<i class="ph ph-trash"></i> Delete';
+                deleteBtn.onclick = () => deleteAdminClient(data.id, data.child_name || data.parent_name);
+
                 tdActions.appendChild(detailsBtn);
                 tdActions.appendChild(msgBtn);
+                tdActions.appendChild(deleteBtn);
 
                 tr.appendChild(tdChild);
                 tr.appendChild(tdParent);
@@ -478,5 +504,97 @@ document.addEventListener('DOMContentLoaded', () => {
 
         rescheduleModal.style.display = 'flex';
     };
+
+    window.deleteAdminClient = async function (userId, studentName) {
+        if (!confirm(`Are you EXTREMELY sure you want to completely delete ${studentName}'s account? This will permanently erase their bookings, messages, and profile. This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/.netlify/functions/admin-action', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'delete_user',
+                    password: MOCK_ADMIN_PASS,
+                    payload: { userId }
+                })
+            });
+            if (!res.ok) throw new Error(await res.text());
+
+            alert(`Successfully deleted ${studentName}'s account.`);
+            loadDashboardData();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to delete client account.');
+        }
+    };
+
+    // ---- Admin Add Client Logic ----
+    const addModal = document.getElementById('admin-add-modal');
+    const openAddBtn = document.getElementById('open-add-client-btn');
+    const closeAddBtn = document.getElementById('close-admin-add');
+    const addForm = document.getElementById('admin-add-form');
+    const addSubmitBtn = document.getElementById('add-submit-btn');
+    const addErrorMsg = document.getElementById('add-error-msg');
+
+    if (openAddBtn) {
+        openAddBtn.addEventListener('click', () => {
+            addModal.style.display = 'flex';
+        });
+    }
+
+    if (closeAddBtn) {
+        closeAddBtn.addEventListener('click', () => {
+            addModal.style.display = 'none';
+        });
+    }
+
+    if (addForm) {
+        addForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            addErrorMsg.style.display = 'none';
+            const originalText = addSubmitBtn.innerHTML;
+            addSubmitBtn.innerHTML = 'Creating...';
+            addSubmitBtn.disabled = true;
+
+            const payload = {
+                parentName: document.getElementById('add-parent-name').value.trim(),
+                childName: document.getElementById('add-child-name').value.trim(),
+                email: document.getElementById('add-email').value.trim().toLowerCase(),
+                country: document.getElementById('add-country').value.trim(),
+                password: document.getElementById('add-password').value
+            };
+
+            try {
+                const res = await fetch('/.netlify/functions/admin-action', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'add_user',
+                        password: MOCK_ADMIN_PASS,
+                        payload
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorObj = await res.json();
+                    throw new Error(errorObj.error || "Failed to create account.");
+                }
+
+                alert('Account created successfully!');
+                addForm.reset();
+                addModal.style.display = 'none';
+                loadDashboardData();
+
+            } catch (err) {
+                console.error(err);
+                addErrorMsg.textContent = err.message;
+                addErrorMsg.style.display = 'block';
+            } finally {
+                addSubmitBtn.innerHTML = originalText;
+                addSubmitBtn.disabled = false;
+            }
+        });
+    }
 
 });
