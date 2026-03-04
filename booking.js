@@ -85,7 +85,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const pendingProfileStr = localStorage.getItem('pending_signup_profile');
             let pData = { parent_name: 'Parent', child_name: '', country: '' };
             if (pendingProfileStr) {
-                pData = JSON.parse(pendingProfileStr);
+                try {
+                    pData = JSON.parse(pendingProfileStr);
+                } catch (e) { console.error(e); }
             }
 
             const { error: insertError } = await supabase.from('profiles').insert([
@@ -286,7 +288,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const pendingProfileStr = localStorage.getItem('pending_signup_profile');
                     let pData = { parent_name: 'Parent', child_name: '', country: '' };
                     if (pendingProfileStr) {
-                        pData = JSON.parse(pendingProfileStr);
+                        try {
+                            pData = JSON.parse(pendingProfileStr);
+                        } catch (e) { console.error(e); }
                     }
 
                     const { error: insertError } = await supabase.from('profiles').insert([
