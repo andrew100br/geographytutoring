@@ -81,6 +81,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const parentName = profile ? profile.parent_name : "Parent";
 
         await loginSuccess(session.user.email, parentName, credits);
+    } else {
+        authView.classList.remove('hidden');
     }
 
     // ---- Auth Logic ----
