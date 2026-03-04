@@ -95,12 +95,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Actions
                 const tdActions = document.createElement('td');
+                tdActions.style.display = 'flex';
+                tdActions.style.gap = '0.5rem';
+
+                const detailsBtn = document.createElement('button');
+                detailsBtn.className = 'btn btn-outline';
+                detailsBtn.style.padding = '0.3rem 0.8rem';
+                detailsBtn.style.fontSize = '0.8rem';
+                detailsBtn.innerHTML = '<i class="ph ph-list-dashes"></i> Details';
+                detailsBtn.onclick = () => openAdminDetails(data.id, data.child_name || data.parent_name, credits);
+
                 const msgBtn = document.createElement('button');
                 msgBtn.className = 'btn btn-primary';
                 msgBtn.style.padding = '0.3rem 0.8rem';
                 msgBtn.style.fontSize = '0.8rem';
                 msgBtn.innerHTML = '<i class="ph ph-chat-circle-dots"></i> Message';
                 msgBtn.onclick = () => openAdminChat(data.id, data.child_name || data.parent_name);
+
+                tdActions.appendChild(detailsBtn);
                 tdActions.appendChild(msgBtn);
 
                 tr.appendChild(tdChild);
@@ -244,5 +256,213 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // ---- Admin Details Logic ----
+    const detailsModal = document.getElementById('admin-details-modal');
+    const closeDetailsBtn = document.getElementById('close-admin-details');
+    const detailsTitle = document.getElementById('admin-details-title');
+    const detailsMembership = document.getElementById('admin-details-membership');
+    const detailsCredits = document.getElementById('admin-details-credits');
+    const bookingsUl = document.getElementById('admin-bookings-ul');
+
+    if (closeDetailsBtn) {
+        closeDetailsBtn.addEventListener('click', () => {
+            detailsModal.style.display = 'none';
+        });
+    }
+
+    window.openAdminDetails = async function (userId, studentName, credits) {
+        detailsTitle.innerHTML = `<i class="ph ph-user-circle"></i> Details for ${studentName}`;
+        detailsCredits.textContent = `${credits} Lesson(s)`;
+        detailsMembership.textContent = 'Calculating...';
+        bookingsUl.innerHTML = '<li style="padding: 1rem; text-align: center; color: #94a3b8;">Loading bookings...</li>';
+
+        detailsModal.style.display = 'flex';
+
+        // Fetch Bookings
+        const { data: bookings, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('booking_date', new Date().toISOString()) // Only future or current, or we can fetch all and filter
+            .order('booking_date', { ascending: true });
+
+        bookingsUl.innerHTML = '';
+
+        if (error) {
+            bookingsUl.innerHTML = '<li style="padding: 1rem; text-align: center; color: #dc2626;">Failed to load bookings</li>';
+            detailsMembership.textContent = 'Unknown';
+            return;
+        }
+
+        // Determine Membership Type
+        // Logic: 
+        // 1. If currently has active "is_monthly" true bookings in the future -> Monthly Subscribed
+        // 2. Else if has future bookings or credits > 0 -> Pay As You Go
+        // 3. Else -> In Trial / Lead
+        const now = new Date();
+        const futureBookings = bookings ? bookings.filter(b => new Date(b.booking_date) >= now) : [];
+        const hasMonthly = futureBookings.some(b => b.is_monthly);
+
+        if (hasMonthly) {
+            detailsMembership.innerHTML = '<span style="color: #16a34a;"><i class="ph ph-star"></i> Monthly Subscriber</span>';
+        } else if (futureBookings.length > 0 || credits > 0) {
+            detailsMembership.innerHTML = '<span>Pay As You Go</span>';
+        } else {
+            detailsMembership.innerHTML = '<span style="color: #ea580c;">Trial / Lead</span>';
+        }
+
+        if (futureBookings.length === 0) {
+            bookingsUl.innerHTML = '<li style="padding: 1rem; text-align: center; color: #94a3b8;">No upcoming bookings scheduled.</li>';
+        } else {
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                weekday: 'short', month: 'short', day: 'numeric',
+                hour: 'numeric', minute: '2-digit'
+            });
+
+            futureBookings.forEach(b => {
+                const li = document.createElement('li');
+                li.style.padding = '0.75rem 1rem';
+                li.style.borderBottom = '1px solid var(--border-color)';
+                li.style.display = 'flex';
+                li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
+
+                const dtStr = formatter.format(new Date(b.booking_date));
+                const badge = b.is_monthly
+                    ? `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Monthly Slot</span>`
+                    : `<span style="background: #f1f5f9; color: #475569; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Single Lesson</span>`;
+
+                const infoDiv = document.createElement('div');
+                infoDiv.innerHTML = `<span>${dtStr}</span> ${badge}`;
+
+                const rescheduleBtn = document.createElement('button');
+                rescheduleBtn.className = 'btn btn-outline';
+                rescheduleBtn.style.padding = '0.2rem 0.5rem';
+                rescheduleBtn.style.fontSize = '0.75rem';
+                rescheduleBtn.innerHTML = '<i class="ph ph-calendar-blank"></i> Amend';
+                rescheduleBtn.onclick = () => openAdminReschedule(b.id, b.booking_date, userId, studentName, credits);
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn btn-outline';
+                cancelBtn.style.padding = '0.2rem 0.5rem';
+                cancelBtn.style.fontSize = '0.75rem';
+                cancelBtn.style.color = '#dc2626';
+                cancelBtn.style.borderColor = '#fca5a5';
+                cancelBtn.innerHTML = '<i class="ph ph-trash"></i> Cancel';
+                cancelBtn.onclick = () => cancelAdminBooking(b.id, userId, studentName, credits);
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.style.display = 'flex';
+                actionsDiv.style.gap = '0.5rem';
+                actionsDiv.appendChild(rescheduleBtn);
+                actionsDiv.appendChild(cancelBtn);
+
+                li.appendChild(infoDiv);
+                li.appendChild(actionsDiv);
+                bookingsUl.appendChild(li);
+            });
+        }
+    };
+
+    window.cancelAdminBooking = async function (bookingId, userId, studentName, currentCredits) {
+        if (!confirm("Are you sure you want to cancel this booking?")) {
+            return;
+        }
+
+        const refund = confirm("Would you like to refund 1 credit back to the student for this cancellation?");
+
+        // 1. Delete the booking
+        const { error: deleteError } = await supabase
+            .from('bookings')
+            .delete()
+            .eq('id', bookingId);
+
+        if (deleteError) {
+            alert('Failed to cancel booking.');
+            return;
+        }
+
+        // 2. Refund credit if requested
+        if (refund) {
+            const { error: refundError } = await supabase
+                .from('profiles')
+                .update({ credits: currentCredits + 1 })
+                .eq('id', userId);
+
+            if (refundError) {
+                alert('Booking cancelled, but failed to refund credit.');
+            } else {
+                alert('Booking cancelled and 1 credit refunded.');
+            }
+        } else {
+            alert('Booking cancelled (no credit refunded).');
+        }
+
+        // 3. Refresh data
+        detailsModal.style.display = 'none';
+        loadDashboardData();
+    };
+
+    // ---- Admin Reschedule Logic ----
+    const rescheduleModal = document.getElementById('admin-reschedule-modal');
+    const closeRescheduleBtn = document.getElementById('close-admin-reschedule');
+    const rescheduleForm = document.getElementById('admin-reschedule-form');
+    const rescheduleBookingId = document.getElementById('reschedule-booking-id');
+    const rescheduleUserId = document.getElementById('reschedule-user-id');
+    const rescheduleStudentName = document.getElementById('reschedule-student-name');
+    const rescheduleCredits = document.getElementById('reschedule-credits');
+    const rescheduleDatetime = document.getElementById('reschedule-datetime');
+    const rescheduleSubmitBtn = document.getElementById('reschedule-submit-btn');
+
+    if (closeRescheduleBtn) {
+        closeRescheduleBtn.addEventListener('click', () => {
+            rescheduleModal.style.display = 'none';
+        });
+    }
+
+    if (rescheduleForm) {
+        rescheduleForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bookingId = rescheduleBookingId.value;
+            const newIsoString = new Date(rescheduleDatetime.value).toISOString();
+
+            const originalText = rescheduleSubmitBtn.innerHTML;
+            rescheduleSubmitBtn.innerHTML = 'Processing...';
+            rescheduleSubmitBtn.disabled = true;
+
+            const { error } = await supabase
+                .from('bookings')
+                .update({ booking_date: newIsoString })
+                .eq('id', bookingId);
+
+            rescheduleSubmitBtn.innerHTML = originalText;
+            rescheduleSubmitBtn.disabled = false;
+
+            if (error) {
+                alert('Failed to reschedule booking.');
+            } else {
+                alert('Booking successfully amended!');
+                rescheduleModal.style.display = 'none';
+                detailsModal.style.display = 'none'; // Close details so they can reload
+                loadDashboardData();
+            }
+        });
+    }
+
+    window.openAdminReschedule = function (bookingId, currentIsoDate, userId, studentName, credits) {
+        rescheduleBookingId.value = bookingId;
+        rescheduleUserId.value = userId;
+        rescheduleStudentName.value = studentName;
+        rescheduleCredits.value = credits;
+
+        // Format current date for datetime-local input (YYYY-MM-DDThh:mm)
+        const d = new Date(currentIsoDate);
+        const pad = (n) => n < 10 ? '0' + n : n;
+        const formattedLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        rescheduleDatetime.value = formattedLocal;
+
+        rescheduleModal.style.display = 'flex';
+    };
 
 });

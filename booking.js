@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Dashboard Elements
     const creditBalanceDisplay = document.getElementById('credit-balance-display');
-    const currentBookingsCount = document.getElementById('current-bookings-count');
+
     const bookingsList = document.getElementById('bookings-list');
     const bookMonthlyCheckbox = document.getElementById('book-monthly-checkbox');
     const confirmCostDisplay = document.getElementById('confirm-cost');
@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let selectedDate = null;
 
     // ---- Initialization ----
+    initEventListeners();
     initAuth();
     detectTimezone();
     renderCalendar();
@@ -432,21 +433,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // ---- Week Navigation ----
-    prevWeekBtn.addEventListener('click', () => {
-        currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-        renderCalendar();
-    });
-
-    nextWeekBtn.addEventListener('click', () => {
-        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-        renderCalendar();
-    });
-
     // ---- Dashboard Logic ----
     function updateDashboard() {
         creditBalanceDisplay.textContent = userCredits;
-        currentBookingsCount.textContent = upcomingBookings.length;
+
 
         bookingsList.innerHTML = '';
         if (upcomingBookings.length === 0) {
@@ -458,8 +448,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sortedBookings = [...upcomingBookings].sort((a, b) => a.date - b.date);
 
         const formatter = new Intl.DateTimeFormat('en-US', {
-            weekday: 'short', month: 'short', day: 'numeric',
-            hour: 'numeric', minute: '2-digit'
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+            hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
         });
 
         sortedBookings.forEach(booking => {
@@ -474,97 +464,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             bookingsList.appendChild(li);
         });
     }
-
-    // ---- Top-Up Logic ----
-    function updatePurchaseQtyDisplay() {
-        buyQtyDisplay.textContent = purchaseQty;
-        buyTotalPrice.textContent = `$${purchaseQty * PRICE_PER_LESSON}`;
-
-        if (purchaseQty <= 1) {
-            qtyMinusBtn.classList.add('disabled');
-        } else {
-            qtyMinusBtn.classList.remove('disabled');
-        }
-    }
-
-    qtyMinusBtn.addEventListener('click', () => {
-        if (purchaseQty > 1) {
-            purchaseQty--;
-            updatePurchaseQtyDisplay();
-        }
-    });
-
-    qtyPlusBtn.addEventListener('click', () => {
-        purchaseQty++;
-        updatePurchaseQtyDisplay();
-    });
-
-    buySingleBtn.addEventListener('click', async () => {
-        const btnOriginal = buySingleBtn.innerHTML;
-        buySingleBtn.textContent = 'Processing...';
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        try {
-            const response = await fetch('/.netlify/functions/create-checkout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    quantity: purchaseQty,
-                    userId: session.user.id,
-                    userEmail: session.user.email,
-                    successUrl: window.location.origin + '/booking.html?payment=success',
-                    cancelUrl: window.location.origin + '/booking.html?payment=cancel'
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.url) {
-                window.location.href = data.url; // Redirect to Stripe Checkout
-            } else {
-                throw new Error(data.error || 'Failed to generate checkout session');
-            }
-        } catch (error) {
-            alert('Payment initialization failed: ' + error.message);
-            buySingleBtn.innerHTML = btnOriginal;
-        }
-    });
-
-    buyBundleBtn.addEventListener('click', async () => {
-        const btnOriginal = buyBundleBtn.textContent;
-        buyBundleBtn.textContent = 'Processing...';
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        try {
-            // Bundle uses a quantity of 10 to trigger the discounted logic in the serverless function
-            const response = await fetch('/.netlify/functions/create-checkout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    quantity: 10,
-                    userId: session.user.id,
-                    userEmail: session.user.email,
-                    successUrl: window.location.origin + '/booking.html?payment=success',
-                    cancelUrl: window.location.origin + '/booking.html?payment=cancel'
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.url) {
-                window.location.href = data.url; // Redirect to Stripe Checkout
-            } else {
-                throw new Error(data.error || 'Failed to generate checkout session');
-            }
-        } catch (error) {
-            alert('Payment initialization failed: ' + error.message);
-            buyBundleBtn.textContent = btnOriginal;
-        }
-    });
 
     // ---- Booking Modal Logic ----
     function openBookingModal(dateObj, gridDay) {
@@ -595,95 +494,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         bookingModal.classList.remove('hidden');
     }
-
-    // Checkbox toggle listener
-    bookMonthlyCheckbox.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            confirmCostDisplay.textContent = '4 Credits';
-        } else {
-            confirmCostDisplay.textContent = '1 Credit';
-        }
-    });
-
-    cancelBookingBtn.addEventListener('click', () => {
-        bookingModal.classList.add('hidden');
-        selectedDate = null;
-    });
-
-    confirmBookingBtn.addEventListener('click', async () => {
-        const isMonthly = bookMonthlyCheckbox.checked;
-        const requiredCredits = isMonthly ? 4 : 1;
-
-        if (userCredits < requiredCredits) {
-            alert(`You need ${requiredCredits} credits for this booking. You only have ${userCredits} left.`);
-            return;
-        }
-
-        const btnOriginal = confirmBookingBtn.textContent;
-        confirmBookingBtn.textContent = 'Booking...';
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        // Create booking records
-        const bookingInserts = [];
-        if (isMonthly) {
-            for (let i = 0; i < 4; i++) {
-                const nextDate = new Date(selectedDate);
-                nextDate.setDate(selectedDate.getDate() + (i * 7));
-                bookingInserts.push({
-                    user_id: session.user.id,
-                    booking_date: nextDate.toISOString(),
-                    is_monthly: true,
-                    status: 'confirmed'
-                });
-            }
-        } else {
-            bookingInserts.push({
-                user_id: session.user.id,
-                booking_date: selectedDate.toISOString(),
-                is_monthly: false,
-                status: 'confirmed'
-            });
-        }
-
-        const { error: bookingError } = await supabase.from('bookings').insert(bookingInserts);
-
-        if (bookingError) {
-            confirmBookingBtn.textContent = btnOriginal;
-            alert('Failed to save booking. Please try again.');
-            return;
-        }
-
-        // Deduct credits
-        const newCredits = userCredits - requiredCredits;
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ credits: newCredits })
-            .eq('id', session.user.id);
-
-        if (!profileError) {
-            userCredits = newCredits;
-
-            // Add to local UI array
-            bookingInserts.forEach(b => {
-                upcomingBookings.push({ date: new Date(b.booking_date), isMonthly: b.is_monthly });
-            });
-
-            updateDashboard();
-
-            bookingModal.classList.add('hidden');
-            confirmBookingBtn.textContent = btnOriginal;
-
-            // Notify user
-            alert(isMonthly
-                ? 'Monthly slot secured! 4 credits deducted.'
-                : 'Lesson booked! 1 credit deducted.');
-        } else {
-            confirmBookingBtn.textContent = btnOriginal;
-            alert('Failed to update credits.');
-        }
-    });
 
     // ---- Messenger Logic ----
     async function fetchAndRenderMessages(userId) {
@@ -758,40 +568,223 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    const chatForm = document.getElementById('chat-form');
-    if (chatForm) {
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const input = document.getElementById('chat-input');
-            const btn = document.getElementById('chat-submit-btn');
-            const content = input.value.trim();
-            if (!content) return;
+    function initEventListeners() {
+        // ---- Week Navigation ----
+        prevWeekBtn.addEventListener('click', () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+            renderCalendar();
+        });
+
+        nextWeekBtn.addEventListener('click', () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            renderCalendar();
+        });
+
+        // ---- Top-Up Logic ----
+        qtyMinusBtn.addEventListener('click', () => {
+            if (purchaseQty > 1) {
+                purchaseQty--;
+                buyQtyDisplay.textContent = purchaseQty;
+                buyTotalPrice.textContent = `$${purchaseQty * PRICE_PER_LESSON}`;
+                if (purchaseQty <= 1) qtyMinusBtn.classList.add('disabled');
+            }
+        });
+
+        qtyPlusBtn.addEventListener('click', () => {
+            purchaseQty++;
+            buyQtyDisplay.textContent = purchaseQty;
+            buyTotalPrice.textContent = `$${purchaseQty * PRICE_PER_LESSON}`;
+            qtyMinusBtn.classList.remove('disabled');
+        });
+
+        buySingleBtn.addEventListener('click', async () => {
+            const btnOriginal = buySingleBtn.innerHTML;
+            buySingleBtn.textContent = 'Processing...';
 
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) return;
 
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '...';
-            btn.disabled = true;
+            try {
+                const response = await fetch('/.netlify/functions/create-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        quantity: purchaseQty,
+                        userId: session.user.id,
+                        userEmail: session.user.email,
+                        successUrl: window.location.origin + '/booking.html?payment=success',
+                        cancelUrl: window.location.origin + '/booking.html?payment=cancel'
+                    })
+                });
 
-            const { error } = await supabase.from('messages').insert([{
-                user_id: session.user.id,
-                content: content,
-                is_from_admin: false
-            }]);
+                const data = await response.json();
 
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-
-            if (error) {
-                console.error("Failed to send message", error);
-                alert("Failed to send message. Please try again.");
-            } else {
-                input.value = '';
-                // Reload messages
-                fetchAndRenderMessages(session.user.id);
+                if (data.url) {
+                    window.location.href = data.url; // Redirect to Stripe Checkout
+                } else {
+                    throw new Error(data.error || 'Failed to generate checkout session');
+                }
+            } catch (error) {
+                alert('Payment initialization failed: ' + error.message);
+                buySingleBtn.innerHTML = btnOriginal;
             }
         });
+
+        buyBundleBtn.addEventListener('click', async () => {
+            const btnOriginal = buyBundleBtn.textContent;
+            buyBundleBtn.textContent = 'Processing...';
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            try {
+                const response = await fetch('/.netlify/functions/create-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        quantity: 10,
+                        userId: session.user.id,
+                        userEmail: session.user.email,
+                        successUrl: window.location.origin + '/booking.html?payment=success',
+                        cancelUrl: window.location.origin + '/booking.html?payment=cancel'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.url) {
+                    window.location.href = data.url; // Redirect to Stripe Checkout
+                } else {
+                    throw new Error(data.error || 'Failed to generate checkout session');
+                }
+            } catch (error) {
+                alert('Payment initialization failed: ' + error.message);
+                buyBundleBtn.textContent = btnOriginal;
+            }
+        });
+
+        // ---- Booking Modal Logic ----
+        bookMonthlyCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                confirmCostDisplay.textContent = '4 Credits';
+            } else {
+                confirmCostDisplay.textContent = '1 Credit';
+            }
+        });
+
+        cancelBookingBtn.addEventListener('click', () => {
+            bookingModal.classList.add('hidden');
+            selectedDate = null;
+        });
+
+        confirmBookingBtn.addEventListener('click', async () => {
+            const isMonthly = bookMonthlyCheckbox.checked;
+            const requiredCredits = isMonthly ? 4 : 1;
+
+            if (userCredits < requiredCredits) {
+                alert(`You need ${requiredCredits} credits for this booking. You only have ${userCredits} left.`);
+                return;
+            }
+
+            const btnOriginal = confirmBookingBtn.textContent;
+            confirmBookingBtn.textContent = 'Booking...';
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            // Create booking records
+            const bookingInserts = [];
+            if (isMonthly) {
+                for (let i = 0; i < 4; i++) {
+                    const nextDate = new Date(selectedDate);
+                    nextDate.setDate(selectedDate.getDate() + (i * 7));
+                    bookingInserts.push({
+                        user_id: session.user.id,
+                        booking_date: nextDate.toISOString(),
+                        is_monthly: true,
+                        status: 'confirmed'
+                    });
+                }
+            } else {
+                bookingInserts.push({
+                    user_id: session.user.id,
+                    booking_date: selectedDate.toISOString(),
+                    is_monthly: false,
+                    status: 'confirmed'
+                });
+            }
+
+            const { error: bookingError } = await supabase.from('bookings').insert(bookingInserts);
+
+            if (bookingError) {
+                confirmBookingBtn.textContent = btnOriginal;
+                alert('Failed to save booking. Please try again.');
+                return;
+            }
+
+            // Deduct credits
+            const newCredits = userCredits - requiredCredits;
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ credits: newCredits })
+                .eq('id', session.user.id);
+
+            if (!profileError) {
+                userCredits = newCredits;
+
+                // Add to local UI array
+                bookingInserts.forEach(b => {
+                    upcomingBookings.push({ date: new Date(b.booking_date), isMonthly: b.is_monthly });
+                });
+
+                updateDashboard();
+
+                bookingModal.classList.add('hidden');
+                confirmBookingBtn.textContent = btnOriginal;
+
+                alert(isMonthly
+                    ? 'Monthly slot secured! 4 credits deducted.'
+                    : 'Lesson booked! 1 credit deducted.');
+            } else {
+                confirmBookingBtn.textContent = btnOriginal;
+                alert('Failed to update credits.');
+            }
+        });
+
+        const chatForm = document.getElementById('chat-form');
+        if (chatForm) {
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = document.getElementById('chat-input');
+                const btn = document.getElementById('chat-submit-btn');
+                const content = input.value.trim();
+                if (!content) return;
+
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '...';
+                btn.disabled = true;
+
+                const { error } = await supabase.from('messages').insert([{
+                    user_id: session.user.id,
+                    content: content,
+                    is_from_admin: false
+                }]);
+
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+
+                if (error) {
+                    console.error("Failed to send message", error);
+                    alert("Failed to send message. Please try again.");
+                } else {
+                    input.value = '';
+                    fetchAndRenderMessages(session.user.id);
+                }
+            });
+        }
     }
 
 });
