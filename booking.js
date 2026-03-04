@@ -185,8 +185,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return;
                 }
 
-                if (data.user) {
-                    // Create profile in Supabase
+                if (data.session) {
+                    // Profile creation with valid session
                     const { error: profileError } = await supabase.from('profiles').insert([
                         {
                             id: data.user.id,
@@ -200,9 +200,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     if (profileError) {
                         console.error('Error creating profile:', profileError);
+                        alert("There was an error creating your profile in the database. Please contact the administrator.");
                     }
 
                     await loginSuccess(email, parentNameInput.value, 0);
+                } else if (data.user) {
+                    // Supabase requires email confirmation
+                    authStatusMsg.innerHTML = "<strong>Success, but hold on!</strong><br/>Please check your email and click the confirmation link before logging in.";
+                    authSubmitBtn.textContent = btnOriginalText;
+                    authSubmitBtn.disabled = false;
+                    return;
                 }
 
             } else {
@@ -763,7 +770,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!content) return;
 
                 const { data: { session } } = await supabase.auth.getSession();
-                if (!session) return;
+                if (!session) {
+                    alert("You must be fully logged in to send a message. Please confirm your email or click log in again.");
+                    return;
+                }
 
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '...';
