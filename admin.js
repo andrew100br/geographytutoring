@@ -238,11 +238,20 @@ document.addEventListener('DOMContentLoaded', () => {
             chatSubmitBtn.innerHTML = '...';
             chatSubmitBtn.disabled = true;
 
-            const { error } = await supabase.from('messages').insert([{
-                user_id: userId,
-                content: content,
-                is_from_admin: true
-            }]);
+            let error = null;
+            try {
+                const res = await fetch('/.netlify/functions/admin-action', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'send_message',
+                        password: MOCK_ADMIN_PASS,
+                        payload: { userId, content }
+                    })
+                });
+                if (!res.ok) throw new Error(await res.text());
+            } catch (err) {
+                error = err;
+            }
 
             chatSubmitBtn.innerHTML = originalText;
             chatSubmitBtn.disabled = false;
@@ -372,31 +381,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const refund = confirm("Would you like to refund 1 credit back to the student for this cancellation?");
 
-        // 1. Delete the booking
-        const { error: deleteError } = await supabase
-            .from('bookings')
-            .delete()
-            .eq('id', bookingId);
+        try {
+            const res = await fetch('/.netlify/functions/admin-action', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'cancel_booking',
+                    password: MOCK_ADMIN_PASS,
+                    payload: { bookingId, userId, currentCredits, refund }
+                })
+            });
+            if (!res.ok) throw new Error(await res.text());
 
-        if (deleteError) {
+            if (refund) {
+                alert('Booking cancelled and 1 credit refunded.');
+            } else {
+                alert('Booking cancelled (no credit refunded).');
+            }
+        } catch (err) {
+            console.error(err);
             alert('Failed to cancel booking.');
             return;
-        }
-
-        // 2. Refund credit if requested
-        if (refund) {
-            const { error: refundError } = await supabase
-                .from('profiles')
-                .update({ credits: currentCredits + 1 })
-                .eq('id', userId);
-
-            if (refundError) {
-                alert('Booking cancelled, but failed to refund credit.');
-            } else {
-                alert('Booking cancelled and 1 credit refunded.');
-            }
-        } else {
-            alert('Booking cancelled (no credit refunded).');
         }
 
         // 3. Refresh data
@@ -431,10 +435,20 @@ document.addEventListener('DOMContentLoaded', () => {
             rescheduleSubmitBtn.innerHTML = 'Processing...';
             rescheduleSubmitBtn.disabled = true;
 
-            const { error } = await supabase
-                .from('bookings')
-                .update({ booking_date: newIsoString })
-                .eq('id', bookingId);
+            let error = null;
+            try {
+                const res = await fetch('/.netlify/functions/admin-action', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'reschedule_booking',
+                        password: MOCK_ADMIN_PASS,
+                        payload: { bookingId, newIsoString }
+                    })
+                });
+                if (!res.ok) throw new Error(await res.text());
+            } catch (err) {
+                error = err;
+            }
 
             rescheduleSubmitBtn.innerHTML = originalText;
             rescheduleSubmitBtn.disabled = false;
