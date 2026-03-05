@@ -602,49 +602,61 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         messages.forEach(msg => {
-            const bubbleBox = document.createElement('div');
-            bubbleBox.style.display = 'flex';
-            bubbleBox.style.flexDirection = 'column';
-            bubbleBox.style.maxWidth = '80%';
-
-            const bubble = document.createElement('div');
-            bubble.style.padding = '0.75rem';
-            bubble.style.borderRadius = '8px';
-            bubble.textContent = msg.content;
-
-            // Date formatting
-            const dt = new Date(msg.created_at);
-            const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + dt.toLocaleDateString();
-            const timeLabel = document.createElement('span');
-            timeLabel.style.fontSize = '0.7rem';
-            timeLabel.style.color = '#94a3b8';
-            timeLabel.style.marginTop = '0.2rem';
-            timeLabel.textContent = timeStr;
-
-            if (msg.is_from_admin) {
-                bubbleBox.style.alignSelf = 'flex-start';
-                bubble.style.background = '#e2e8f0';
-                bubble.style.color = '#1e293b';
-                timeLabel.style.alignSelf = 'flex-start';
-
-                const senderLabel = document.createElement('span');
-                senderLabel.style.fontSize = '0.75rem';
-                senderLabel.style.fontWeight = 'bold';
-                senderLabel.style.color = '#64748b';
-                senderLabel.style.marginBottom = '0.2rem';
-                senderLabel.textContent = 'Teacher Andrew';
-                bubbleBox.insertBefore(senderLabel, bubble);
-            } else {
-                bubbleBox.style.alignSelf = 'flex-end';
-                bubble.style.background = 'var(--primary-color)';
-                bubble.style.color = '#000'; // Changed to black for better visibility
-                timeLabel.style.alignSelf = 'flex-end';
-            }
-
-            bubbleBox.appendChild(bubble);
-            bubbleBox.appendChild(timeLabel);
-            chatBox.appendChild(bubbleBox);
+            appendSingleMessageToDOM(chatBox, msg);
         });
+
+        // auto scroll to bottom
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function appendSingleMessageToDOM(chatBox, msg) {
+        if (chatBox.innerHTML.includes("No messages yet")) {
+            chatBox.innerHTML = '';
+        }
+
+        const bubbleBox = document.createElement('div');
+        bubbleBox.style.display = 'flex';
+        bubbleBox.style.flexDirection = 'column';
+        bubbleBox.style.maxWidth = '80%';
+
+        const bubble = document.createElement('div');
+        bubble.style.padding = '0.75rem';
+        bubble.style.borderRadius = '8px';
+        bubble.textContent = msg.content;
+
+        const dt = new Date(msg.created_at);
+        const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + dt.toLocaleDateString();
+        const timeLabel = document.createElement('span');
+        timeLabel.style.fontSize = '0.7rem';
+        timeLabel.style.color = '#94a3b8';
+        timeLabel.style.marginTop = '0.2rem';
+        timeLabel.textContent = timeStr;
+
+        if (msg.is_from_admin) {
+            bubbleBox.style.alignSelf = 'flex-start';
+            bubble.style.background = '#e2e8f0';
+            bubble.style.color = '#1e293b';
+            timeLabel.style.alignSelf = 'flex-start';
+
+            const senderLabel = document.createElement('span');
+            senderLabel.style.fontSize = '0.75rem';
+            senderLabel.style.fontWeight = 'bold';
+            senderLabel.style.color = '#64748b';
+            senderLabel.style.marginBottom = '0.2rem';
+            senderLabel.textContent = 'Teacher Andrew';
+            bubbleBox.insertBefore(senderLabel, bubble);
+        } else {
+            bubbleBox.style.alignSelf = 'flex-end';
+            bubbleBox.style.alignItems = 'flex-end';
+            bubble.style.background = 'var(--primary-color)';
+            bubble.style.color = '#000'; // Changed to black for better visibility
+            timeLabel.style.alignSelf = 'flex-end';
+        }
+
+        bubbleBox.appendChild(bubble);
+        bubbleBox.appendChild(timeLabel);
+        chatBox.appendChild(bubbleBox);
+        chatBox.scrollTop = chatBox.scrollHeight;
 
         // auto scroll to bottom
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -853,13 +865,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 btn.disabled = true;
 
                 let error = null;
+                let newlyInsertedMsg = null;
                 try {
-                    const { error: msgError } = await supabase.from('messages').insert([{
+                    const { data: retData, error: msgError } = await supabase.from('messages').insert([{
                         user_id: session.user.id,
                         content: content,
                         is_from_admin: false
-                    }]);
+                    }]).select().single();
                     if (msgError) throw msgError;
+                    newlyInsertedMsg = retData;
                 } catch (err) {
                     error = err;
                 }
@@ -870,9 +884,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (error) {
                     console.error("Failed to send message", error);
                     alert("Failed to send message. Please try again.");
-                } else {
+                } else if (newlyInsertedMsg) {
                     input.value = '';
-                    fetchAndRenderMessages(session.user.id);
+                    const chatBox = document.getElementById('chat-box');
+                    if (chatBox) appendSingleMessageToDOM(chatBox, newlyInsertedMsg);
                 }
             });
         }
