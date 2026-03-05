@@ -69,14 +69,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateDashboard();
 
     // ---- Session Check ----
-    try {
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) throw error;
-        
+    supabase.auth.getSession().then(async ({ data, error }) => {
         const session = data?.session;
+        if (!session || error) {
+            console.log("No active session found. Showing login view.");
+            if (authView) authView.classList.remove('hidden');
+            return;
+        }
 
-        if (session) {
+        try {
+            // We have a session, start loading the dashboard securely
             let { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
@@ -87,47 +89,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             let parentName = "Parent";
 
             if (!profile) {
-                // Profile is missing, meaning they signed up with email confirmation and are now logging in
                 const pendingProfileStr = localStorage.getItem('pending_signup_profile');
                 let pData = { parent_name: 'Parent', child_name: '', country: '' };
                 if (pendingProfileStr) {
-                    try {
-                        pData = JSON.parse(pendingProfileStr);
-                    } catch(e) { console.error("Parse error pending profile", e); }
+                    try { pData = JSON.parse(pendingProfileStr); } catch (e) { }
                 }
 
-                const { error: insertError } = await supabase.from('profiles').insert([
-                    {
-                        id: session.user.id,
-                        email: session.user.email,
-                        parent_name: pData.parent_name,
-                        child_name: pData.child_name,
-                        country: pData.country,
-                        credits: 0
-                    }
-                ]);
+                const { error: insertError } = await supabase.from('profiles').insert([{
+                    id: session.user.id,
+                    email: session.user.email,
+                    parent_name: pData.parent_name,
+                    child_name: pData.child_name,
+                    country: pData.country,
+                    credits: 0
+                }]);
 
                 if (!insertError) {
                     localStorage.removeItem('pending_signup_profile');
                     parentName = pData.parent_name;
-                } else {
-                    console.error("Failed to create delayed profile:", insertError);
                 }
             } else {
                 credits = profile.credits || 0;
                 parentName = profile.parent_name || "Parent";
             }
 
-            await loginSuccess(session.user.email, parentName, credits);
-        } else {
-            console.log("No active session found. Showing login view.");
+            loginSuccess(session.user.email, parentName, credits);
+        } catch (err) {
+            console.error("Critical error during session load:", err);
             if (authView) authView.classList.remove('hidden');
         }
-    } catch (err) {
-        console.error("Critical error during session load:", err);
-        // Fallback: force show the auth screen if possible
-        if (authView) authView.classList.remove('hidden');
-    }
+    });
 
     // ---- Auth Logic ----
     function initAuth() {
@@ -378,45 +369,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    async function loginSuccess(email, name, credits) {
+    function loginSuccess(email, name, credits) {
         // Set the hidden field value for the contact form
         const hiddenNameInput = document.getElementById('portal-name-hidden');
         if (hiddenNameInput) {
             hiddenNameInput.value = name;
         }
 
-        // Set credits
+        // Set credits instantly
         userCredits = credits || 0;
-
-        // Fetch upcoming bookings
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            const { data: bookings } = await supabase
-                .from('bookings')
-                .select('*')
-                .eq('user_id', session.user.id);
-
-            if (bookings) {
-                upcomingBookings = bookings.map(b => ({
-                    date: new Date(b.booking_date),
-                    isMonthly: b.is_monthly,
-                    id: b.id
-                }));
-            }
-
-            // Fetch messages
-            await fetchAndRenderMessages(session.user.id);
-        }
-
         updateDashboard();
 
-        // Transition UI
-        authView.classList.add('hidden');
-        calendarView.classList.remove('hidden');
-        authSubmitBtn.textContent = isLoginMode ? 'Log In' : 'Create Account';
-        authForm.reset();
+        // Transition UI IMPMEDIATELY so it feels fast
+        if (authView) authView.classList.add('hidden');
+        if (calendarView) calendarView.classList.remove('hidden');
+        if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
+        if (authForm) authForm.reset();
         if (forgotPasswordContainer) forgotPasswordContainer.classList.add('hidden');
         if (resetSuccessMsg) resetSuccessMsg.classList.add('hidden');
+
+        // Fetch bookings and messages in the background
+        supabase.auth.getSession().then(async ({ data }) => {
+            const session = data?.session;
+            if (session) {
+                const { data: bookings } = await supabase
+                    .from('bookings')
+                    .select('*')
+                    .eq('user_id', session.user.id);
+
+                if (bookings) {
+                    upcomingBookings = bookings.map(b => ({
+                        date: new Date(b.booking_date),
+                        isMonthly: b.is_monthly,
+                        id: b.id
+                    }));
+                    updateDashboard(); // re-render with the fetched data
+                }
+
+                fetchAndRenderMessages(session.user.id);
+            }
+        });
     }
 
     // ---- Calendar & Timezone Logic ----
