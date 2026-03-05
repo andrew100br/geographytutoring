@@ -204,9 +204,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        messages.forEach(msg => {
-            appendSingleAdminMessageToDOM(chatBox, msg);
-        });
+        try {
+            messages.forEach(msg => {
+                appendSingleAdminMessageToDOM(chatBox, msg);
+            });
+        } catch (catastrophicError) {
+            chatBox.innerHTML = `<div style="color: red; padding: 1rem;">CRITICAL RENDER ERROR: ${catastrophicError.toString()}<br><br>${catastrophicError.stack}</div>`;
+        }
 
         chatBox.scrollTop = chatBox.scrollHeight;
     }

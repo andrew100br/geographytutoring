@@ -601,9 +601,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        messages.forEach(msg => {
-            appendSingleMessageToDOM(chatBox, msg);
-        });
+        try {
+            messages.forEach(msg => {
+                appendSingleMessageToDOM(chatBox, msg);
+            });
+        } catch (catastrophicError) {
+            chatBox.innerHTML = `<div style="color: red; padding: 1rem;">CRITICAL RENDER ERROR: ${catastrophicError.toString()}<br><br>${catastrophicError.stack}</div>`;
+        }
 
         // auto scroll to bottom
         chatBox.scrollTop = chatBox.scrollHeight;
