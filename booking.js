@@ -601,13 +601,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        try {
-            messages.forEach(msg => {
-                appendSingleMessageToDOM(chatBox, msg);
-            });
-        } catch (catastrophicError) {
-            chatBox.innerHTML = `<div style="color: red; padding: 1rem;">CRITICAL RENDER ERROR: ${catastrophicError.toString()}<br><br>${catastrophicError.stack}</div>`;
-        }
+        messages.forEach(msg => {
+            appendSingleMessageToDOM(chatBox, msg);
+        });
 
         // auto scroll to bottom
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -636,6 +632,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         timeLabel.style.marginTop = '0.2rem';
         timeLabel.textContent = timeStr;
 
+        bubbleBox.appendChild(bubble);
+
         if (msg.is_from_admin) {
             bubbleBox.style.alignSelf = 'flex-start';
             bubble.style.background = '#e2e8f0';
@@ -657,7 +655,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             timeLabel.style.alignSelf = 'flex-end';
         }
 
-        bubbleBox.appendChild(bubble);
         bubbleBox.appendChild(timeLabel);
         chatBox.appendChild(bubbleBox);
         chatBox.scrollTop = chatBox.scrollHeight;
