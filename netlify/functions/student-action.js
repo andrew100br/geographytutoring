@@ -14,38 +14,25 @@ exports.handler = async (event, context) => {
         }
 
         const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-        // Verify the user token securely via Admin API
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        // Construct the client using the user's token so that RLS evaluates auth.uid() correctly!
+        const supabase = createClient(supabaseUrl, supabaseKey, {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        });
+
+        // Verify the user token securely
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) {
             return { statusCode: 401, body: JSON.stringify({ error: 'Invalid or expired auth token.' }) };
         }
 
         if (action === 'send_message') {
             const { content } = data;
-
-            // Failsafe: Upsert their profile so the foreign key constraint NEVER fails
-            const pendingProfileStr = event.headers['x-pending-profile'];
-            let parentName = "Website Member";
-            let childName = "Student";
-            if (pendingProfileStr) {
-                try {
-                    const pData = JSON.parse(pendingProfileStr);
-                    parentName = pData.parent_name || parentName;
-                    childName = pData.child_name || childName;
-                } catch (e) { }
-            }
-
-            // Using the service key, upsert profile to guarantee existence
-            await supabase.from('profiles').upsert({
-                id: user.id,
-                email: user.email,
-                parent_name: parentName,
-                child_name: childName,
-                credits: 0 // Will not overwrite existing credits if we use conflict rules, but let's just do a distinct lookup first
-            }, { onConflict: 'id', ignoreDuplicates: true });
 
             // Insert message securely bypassing RLS
             const { error: msgError } = await supabase.from('messages').insert([{

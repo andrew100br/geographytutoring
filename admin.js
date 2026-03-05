@@ -266,15 +266,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let error = null;
             try {
-                const res = await fetch('/.netlify/functions/admin-action', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'send_message',
-                        password: MOCK_ADMIN_PASS,
-                        payload: { userId, content }
-                    })
-                });
-                if (!res.ok) throw new Error(await res.text());
+                const { error: msgErr } = await supabase.from('messages').insert([{
+                    user_id: userId,
+                    content: content,
+                    is_from_admin: true
+                }]);
+                if (msgErr) throw msgErr;
             } catch (err) {
                 error = err;
             }
