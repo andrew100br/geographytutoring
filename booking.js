@@ -405,8 +405,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }));
                     updateDashboard(); // re-render with the fetched data
                 }
-
-                fetchAndRenderMessages(session.user.id);
             }
         });
     }
@@ -577,91 +575,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bookingModal.classList.remove('hidden');
     }
 
-    // ---- Messenger Logic ----
-    async function fetchAndRenderMessages(userId) {
-        const chatBox = document.getElementById('chat-box');
-        if (!chatBox) return;
-
-        const { data: messages, error } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: true });
-
-        chatBox.innerHTML = ''; // clear loading
-
-        if (error) {
-            console.error("Error fetching messages:", error);
-            chatBox.innerHTML = '<div style="text-align: center; color: #dc2626; margin-top: auto; margin-bottom: auto;">Failed to load messages.</div>';
-            return;
-        }
-
-        if (!messages || messages.length === 0) {
-            chatBox.innerHTML = '<div style="text-align: center; color: #94a3b8; margin-top: auto; margin-bottom: auto;">No messages yet. Say hello!</div>';
-            return;
-        }
-
-        messages.forEach(msg => {
-            appendSingleMessageToDOM(chatBox, msg);
-        });
-
-        // auto scroll to bottom
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    function appendSingleMessageToDOM(chatBox, msg) {
-        if (chatBox.innerHTML.includes("No messages yet")) {
-            chatBox.innerHTML = '';
-        }
-
-        const bubbleBox = document.createElement('div');
-        bubbleBox.style.display = 'flex';
-        bubbleBox.style.flexDirection = 'column';
-        bubbleBox.style.maxWidth = '80%';
-
-        const bubble = document.createElement('div');
-        bubble.style.padding = '0.75rem';
-        bubble.style.borderRadius = '8px';
-        bubble.textContent = msg.content;
-
-        const dt = new Date(msg.created_at);
-        const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + dt.toLocaleDateString();
-        const timeLabel = document.createElement('span');
-        timeLabel.style.fontSize = '0.7rem';
-        timeLabel.style.color = '#94a3b8';
-        timeLabel.style.marginTop = '0.2rem';
-        timeLabel.textContent = timeStr;
-
-        bubbleBox.appendChild(bubble);
-
-        if (msg.is_from_admin) {
-            bubbleBox.style.alignSelf = 'flex-start';
-            bubble.style.background = '#e2e8f0';
-            bubble.style.color = '#1e293b';
-            timeLabel.style.alignSelf = 'flex-start';
-
-            const senderLabel = document.createElement('span');
-            senderLabel.style.fontSize = '0.75rem';
-            senderLabel.style.fontWeight = 'bold';
-            senderLabel.style.color = '#64748b';
-            senderLabel.style.marginBottom = '0.2rem';
-            senderLabel.textContent = 'Teacher Andrew';
-            bubbleBox.insertBefore(senderLabel, bubble);
-        } else {
-            bubbleBox.style.alignSelf = 'flex-end';
-            bubbleBox.style.alignItems = 'flex-end';
-            bubble.style.background = 'var(--primary-color)';
-            bubble.style.color = '#000'; // Changed to black for better visibility
-            timeLabel.style.alignSelf = 'flex-end';
-        }
-
-        bubbleBox.appendChild(timeLabel);
-        chatBox.appendChild(bubbleBox);
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        // auto scroll to bottom
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
+    // ---- Messenger Logic Removed ----
 
     function initEventListeners() {
         // ---- Week Navigation ----
@@ -846,52 +760,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const chatForm = document.getElementById('chat-form');
-        if (chatForm) {
-            chatForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const input = document.getElementById('chat-input');
-                const btn = document.getElementById('chat-submit-btn');
-                const content = input.value.trim();
-                if (!content) return;
-
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) {
-                    alert("You must be fully logged in to send a message. Please confirm your email or click log in again.");
-                    return;
-                }
-
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '...';
-                btn.disabled = true;
-
-                let error = null;
-                let newlyInsertedMsg = null;
-                try {
-                    const { data: retData, error: msgError } = await supabase.from('messages').insert([{
-                        user_id: session.user.id,
-                        content: content,
-                        is_from_admin: false
-                    }]).select().single();
-                    if (msgError) throw msgError;
-                    newlyInsertedMsg = retData;
-                } catch (err) {
-                    error = err;
-                }
-
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-
-                if (error) {
-                    console.error("Failed to send message", error);
-                    alert("Failed to send message. Please try again.");
-                } else if (newlyInsertedMsg) {
-                    input.value = '';
-                    const chatBox = document.getElementById('chat-box');
-                    if (chatBox) appendSingleMessageToDOM(chatBox, newlyInsertedMsg);
-                }
-            });
-        }
     }
 
 });

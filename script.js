@@ -138,58 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // -----------------------------------------
     // 5. Form Submission Handling
     // -----------------------------------------
-    const bookingForm = document.getElementById('booking-form');
-    const formStatus = document.getElementById('form-status');
-
-    if (bookingForm) {
-        bookingForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Prevent basic submission
-
-            const submitBtn = bookingForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerText;
-
-            submitBtn.innerText = 'Sending...';
-            submitBtn.disabled = true;
-
-            const name = document.getElementById('name').value.trim();
-            const email = document.getElementById('email').value.trim().toLowerCase();
-            const service = document.getElementById('service').value;
-            const message = document.getElementById('message').value.trim();
-            const fullMessage = `Interested Service: ${service}\n\n${message}`;
-
-            try {
-                const res = await fetch('/.netlify/functions/public-action', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'submit_contact_form',
-                        data: { name, email, message: fullMessage }
-                    })
-                });
-
-                if (!res.ok) {
-                    throw new Error("Failed to send inquiry.");
-                }
-
-                formStatus.style.color = 'green';
-                formStatus.style.marginTop = '1rem';
-                formStatus.innerText = 'Thank you! Your inquiry has been sent. Teacher Andrew will reply via the portal soon.';
-
-                bookingForm.reset();
-            } catch (err) {
-                console.error(err);
-                formStatus.style.color = '#dc2626';
-                formStatus.style.marginTop = '1rem';
-                formStatus.innerText = 'Error sending inquiry. Please try again later.';
-            } finally {
-                submitBtn.innerText = originalText;
-                submitBtn.disabled = false;
-                setTimeout(() => {
-                    formStatus.innerText = '';
-                }, 5000);
-            }
-        });
-    }
+    // -----------------------------------------
+    // 5. Form Submission Handling (Removed)
+    // -----------------------------------------
+    // The contact form now uses FormSubmit directly via the HTML action attribute.
 
     // -----------------------------------------
     // 5. Simple Mobile Menu Toggle Concept
