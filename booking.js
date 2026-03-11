@@ -73,7 +73,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const session = data?.session;
         if (!session || error) {
             console.log("No active session found. Showing login view.");
-            if (authView) authView.classList.remove('hidden');
+            if (authView) {
+                authView.classList.remove('hidden');
+                authView.style.display = 'block';
+            }
             return;
         }
 
@@ -116,7 +119,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             loginSuccess(session.user.email, parentName, credits);
         } catch (err) {
             console.error("Critical error during session load:", err);
-            if (authView) authView.classList.remove('hidden');
+            if (authView) {
+                authView.classList.remove('hidden');
+                authView.style.display = 'block';
+            }
         }
     });
 
@@ -359,7 +365,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             await supabase.auth.signOut();
 
             calendarView.classList.add('hidden');
+            calendarView.style.display = 'none';
             authView.classList.remove('hidden');
+            authView.style.display = 'block';
             authForm.reset();
 
             const hiddenNameInput = document.getElementById('portal-name-hidden');
@@ -381,8 +389,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateDashboard();
 
         // Transition UI IMPMEDIATELY so it feels fast
-        if (authView) authView.classList.add('hidden');
-        if (calendarView) calendarView.classList.remove('hidden');
+        if (authView) {
+            authView.classList.add('hidden');
+            authView.style.display = 'none';
+        }
+        if (calendarView) {
+            calendarView.classList.remove('hidden');
+            calendarView.style.display = 'block';
+        }
         if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
         if (authForm) authForm.reset();
         if (forgotPasswordContainer) forgotPasswordContainer.classList.add('hidden');
