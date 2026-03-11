@@ -399,8 +399,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
         if (authForm) authForm.reset();
-        if (forgotPasswordContainer) forgotPasswordContainer.classList.add('hidden');
-        if (resetSuccessMsg) resetSuccessMsg.classList.add('hidden');
+        const forgotContainer = document.getElementById('forgot-password-container');
+        const resetMsg = document.getElementById('reset-success-msg');
+        if (forgotContainer) forgotContainer.style.display = 'none';
+        if (resetMsg) resetMsg.style.display = 'none';
 
         // Fetch bookings and messages in the background
         supabase.auth.getSession().then(async ({ data }) => {
