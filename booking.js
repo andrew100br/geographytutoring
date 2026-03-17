@@ -831,7 +831,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     user_id: session.user.id,
                     booking_date: nextDate.toISOString(),
                     is_monthly: isMonthly, // Keep for backward compatibility
-                    is_ten_lessons: isTenLessons, // We will need to alter the database slightly or just use existing.
                     status: 'confirmed'
                 });
             }
