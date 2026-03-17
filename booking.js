@@ -135,6 +135,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                 parentName = profile.parent_name || "Parent";
             }
 
+            // ---- Process Stripe Return ----
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionId = urlParams.get('session_id');
+
+            if (sessionId) {
+                const consumedKey = `stripe_consumed_${sessionId}`;
+                if (!localStorage.getItem(consumedKey)) {
+                    authSubmitBtn.textContent = 'Verifying Payment...';
+                    try {
+                        const res = await fetch('/.netlify/functions/public-action', {
+                            method: 'POST',
+                            body: JSON.stringify({ action: 'verify_checkout', payload: { sessionId } })
+                        });
+                        const data = await res.json();
+                        
+                        if (data.status === 'paid' || data.status === 'complete') {
+                            const creditsAdded = parseInt(data.creditsToAdd || 0, 10);
+                            if (creditsAdded > 0) {
+                                credits += creditsAdded;
+                                await supabase.from('profiles').update({ credits }).eq('id', session.user.id);
+                                localStorage.setItem(consumedKey, 'true');
+                                alert(`Success! ${creditsAdded} credits have been added to your account.`);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to verify payment session', e);
+                    }
+                }
+                
+                // Keep URL clean
+                window.history.replaceState({}, document.title, window.location.pathname);
+                authSubmitBtn.textContent = 'Log In';
+            }
+
             loginSuccess(session.user.email, parentName, credits);
         } catch (err) {
             console.error("Critical error during session load:", err);

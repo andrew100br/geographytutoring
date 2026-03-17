@@ -31,7 +31,7 @@ exports.handler = async (event, context) => {
                 },
             ],
             mode: 'payment',
-            success_url: successUrl,
+            success_url: successUrl + '&session_id={CHECKOUT_SESSION_ID}',
             cancel_url: cancelUrl,
             customer_email: userEmail,
             // Pass the user ID and exact credit amount as metadata so the webhook knows who to give credits to

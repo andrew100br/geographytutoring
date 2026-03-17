@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 exports.handler = async (event, context) => {
     if (event.httpMethod !== 'POST') {
@@ -89,6 +90,22 @@ exports.handler = async (event, context) => {
 
             const bookedDates = bookings.map(b => b.booking_date);
             return { statusCode: 200, body: JSON.stringify({ bookedSlots: bookedDates }) };
+        }
+
+        if (action === 'verify_checkout') {
+            const { sessionId } = payload;
+            if (!sessionId) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'Missing sessionId' }) };
+            }
+
+            const session = await stripe.checkout.sessions.retrieve(sessionId);
+            return { 
+                statusCode: 200, 
+                body: JSON.stringify({ 
+                    status: session.payment_status,
+                    creditsToAdd: session.metadata.creditsToAdd 
+                }) 
+            };
         }
 
         return { statusCode: 400, body: JSON.stringify({ error: 'Unknown public action.' }) };
