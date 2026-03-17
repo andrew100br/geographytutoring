@@ -17,67 +17,44 @@ exports.handler = async (event, context) => {
         if (action === 'submit_contact_form') {
             const { name, email, message, service } = payload.data;
 
-            // 1. Send email quietly via FormSubmit AJAX endpoint
-            try {
-                await fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        name: name,
-                        email: email,
-                        message: message,
-                        service: service || "N/A",
-                        _subject: `New Inquiry from ${name}`
-                    })
-                });
-            } catch(e) {
-                console.error("FormSubmit Error", e);
-                // Continue with DB save even if email notify fails
-            }
+            // Use native HTTPS to ensure it works on all Node versions reliably without fetch
+            const https = require('https');
+            const postData = JSON.stringify({
+                name: name,
+                email: email,
+                message: message,
+                service: service || "N/A",
+                _subject: `New Inquiry from ${name}`
+            });
 
-            // 2. Save to database
-            let userId;
-            const { data: profiles } = await supabase.from('profiles').select('id').eq('email', email).limit(1);
-
-            if (profiles && profiles.length > 0) {
-                userId = profiles[0].id;
-            } else {
-                const tempPassword = Math.random().toString(36).slice(-10) + 'A1!';
-
-                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                    email: email,
-                    password: tempPassword,
-                    email_confirm: true
-                });
-
-                if (authError) {
-                    throw new Error("Failed to create temporary user for contact form.");
+            const options = {
+                hostname: 'formsubmit.co',
+                path: '/ajax/andrew100br@gmail.com',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Content-Length': Buffer.byteLength(postData)
                 }
+            };
 
-                userId = authData.user.id;
+            return new Promise((resolve) => {
+                const req = https.request(options, (res) => {
+                    let responseBody = '';
+                    res.on('data', (chunk) => responseBody += chunk);
+                    res.on('end', () => {
+                        resolve({ statusCode: 200, body: JSON.stringify({ success: true, response: responseBody }) });
+                    });
+                });
 
-                await supabase.from('profiles').insert([{
-                    id: userId,
-                    email: email,
-                    child_name: "Contact Form Guest",
-                    parent_name: name || "Website Visitor",
-                    country: "Unknown",
-                    credits: 0
-                }]);
-            }
+                req.on('error', (e) => {
+                    console.error("FormSubmit Error", e);
+                    resolve({ statusCode: 500, body: JSON.stringify({ error: 'Failed to send message.' }) });
+                });
 
-            const { error: msgError } = await supabase.from('messages').insert([{
-                user_id: userId,
-                content: message,
-                is_from_admin: false
-            }]);
-
-            if (msgError) throw msgError;
-
-            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+                req.write(postData);
+                req.end();
+            });
         }
 
         if (action === 'get_booked_slots') {
@@ -93,7 +70,9 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'verify_checkout') {
-            const { sessionId } = payload;
+            // FIX: The frontend sends the sessionId inside payload.payload
+            const sessionId = payload.payload ? payload.payload.sessionId : payload.sessionId;
+            
             if (!sessionId) {
                 return { statusCode: 400, body: JSON.stringify({ error: 'Missing sessionId' }) };
             }
