@@ -14,19 +14,38 @@ exports.handler = async (event, context) => {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         if (action === 'submit_contact_form') {
-            const { name, email, message } = payload.data;
+            const { name, email, message, service } = payload.data;
 
-            // Check if user already exists
+            // 1. Send email quietly via FormSubmit AJAX endpoint
+            try {
+                await fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        message: message,
+                        service: service || "N/A",
+                        _subject: `New Inquiry from ${name}`
+                    })
+                });
+            } catch(e) {
+                console.error("FormSubmit Error", e);
+                // Continue with DB save even if email notify fails
+            }
+
+            // 2. Save to database
             let userId;
             const { data: profiles } = await supabase.from('profiles').select('id').eq('email', email).limit(1);
 
             if (profiles && profiles.length > 0) {
                 userId = profiles[0].id;
             } else {
-                // Generate secure random password
                 const tempPassword = Math.random().toString(36).slice(-10) + 'A1!';
 
-                // Create auth user
                 const { data: authData, error: authError } = await supabase.auth.admin.createUser({
                     email: email,
                     password: tempPassword,
@@ -34,13 +53,11 @@ exports.handler = async (event, context) => {
                 });
 
                 if (authError) {
-                    console.error("Auth Error:", authError);
                     throw new Error("Failed to create temporary user for contact form.");
                 }
 
                 userId = authData.user.id;
 
-                // Create profile
                 await supabase.from('profiles').insert([{
                     id: userId,
                     email: email,
@@ -51,7 +68,6 @@ exports.handler = async (event, context) => {
                 }]);
             }
 
-            // Insert message
             const { error: msgError } = await supabase.from('messages').insert([{
                 user_id: userId,
                 content: message,
@@ -61,6 +77,18 @@ exports.handler = async (event, context) => {
             if (msgError) throw msgError;
 
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'get_booked_slots') {
+            const { data: bookings, error } = await supabase
+                .from('bookings')
+                .select('booking_date')
+                .gte('booking_date', new Date().toISOString());
+
+            if (error) throw error;
+
+            const bookedDates = bookings.map(b => b.booking_date);
+            return { statusCode: 200, body: JSON.stringify({ bookedSlots: bookedDates }) };
         }
 
         return { statusCode: 400, body: JSON.stringify({ error: 'Unknown public action.' }) };

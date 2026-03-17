@@ -138,10 +138,56 @@ document.addEventListener('DOMContentLoaded', () => {
     // -----------------------------------------
     // 5. Form Submission Handling
     // -----------------------------------------
-    // -----------------------------------------
-    // 5. Form Submission Handling (Removed)
-    // -----------------------------------------
-    // The contact form now uses FormSubmit directly via the HTML action attribute.
+    const contactForm = document.getElementById('booking-form');
+    const formStatus = document.getElementById('form-status');
+
+    if (contactForm) {
+        contactForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = contactForm.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.textContent;
+            
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+            if (formStatus) formStatus.textContent = '';
+
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                service: document.getElementById('service').value,
+                message: document.getElementById('message').value
+            };
+
+            try {
+                const res = await fetch('/.netlify/functions/public-action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'submit_contact_form',
+                        data: formData
+                    })
+                });
+
+                if (!res.ok) throw new Error('Failed to send message.');
+
+                contactForm.reset();
+                if (formStatus) {
+                    formStatus.style.color = '#16a34a';
+                    formStatus.innerHTML = '<i class="ph ph-check-circle"></i> Message sent successfully! I will reply soon.';
+                }
+            } catch (err) {
+                console.error(err);
+                if (formStatus) {
+                    formStatus.style.color = '#dc2626';
+                    formStatus.textContent = 'Error sending message. Please try again.';
+                }
+            } finally {
+                submitBtn.textContent = originalBtnText;
+                submitBtn.disabled = false;
+            }
+        });
+    }
 
     // -----------------------------------------
     // 5. Simple Mobile Menu Toggle Concept

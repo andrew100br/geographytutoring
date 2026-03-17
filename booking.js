@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bookMonthlyCheckbox = document.getElementById('book-monthly-checkbox');
     const confirmCostDisplay = document.getElementById('confirm-cost');
     const monthlyBookingOption = document.getElementById('monthly-booking-option');
+    const tenLessonsBookingOption = document.getElementById('ten-lessons-booking-option');
+    const bookTenLessonsCheckbox = document.getElementById('book-ten-lessons-checkbox');
 
     // Top-Up Elements
     const qtyMinusBtn = document.getElementById('qty-minus');
@@ -60,16 +62,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentWeekStart.setHours(0, 0, 0, 0);
 
     let selectedDate = null;
-
-    // ---- Initialization ----
+    let allBookedSlots = []; // Array of ISO strings for confirmed bookings
     initEventListeners();
     initAuth();
     detectTimezone();
-    renderCalendar();
+    fetchAllBookedSlots().then(() => {
+        renderCalendar();
+    });
     updateDashboard();
+
+    async function fetchAllBookedSlots() {
+        try {
+            const res = await fetch('/.netlify/functions/public-action', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'get_booked_slots' })
+            });
+            const data = await res.json();
+            if (data.bookedSlots) {
+                allBookedSlots = data.bookedSlots;
+            }
+        } catch (err) {
+            console.error("Failed to fetch all booked slots", err);
+        }
+    }
 
     // ---- Session Check ----
     supabase.auth.getSession().then(async ({ data, error }) => {
+
         const session = data?.session;
         if (!session || error) {
             console.log("No active session found. Showing login view.");
@@ -411,12 +430,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const { data: bookings } = await supabase
                     .from('bookings')
                     .select('*')
-                    .eq('user_id', session.user.id);
+                    .eq('user_id', session.user.id)
+                    .gte('booking_date', new Date().toISOString());
 
                 if (bookings) {
                     upcomingBookings = bookings.map(b => ({
                         date: new Date(b.booking_date),
                         isMonthly: b.is_monthly,
+                        isTenLessons: b.is_ten_lessons, // For completeness
                         id: b.id
                     }));
                     updateDashboard(); // re-render with the fetched data
@@ -424,6 +445,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+
 
     // ---- Calendar & Timezone Logic ----
     function detectTimezone() {
@@ -520,9 +542,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 localSlots.forEach(slot => {
                     const btn = document.createElement('button');
-                    btn.className = 'slot-btn';
-                    btn.textContent = slot.display;
-                    btn.addEventListener('click', () => openBookingModal(slot.raw, thisDay));
+                    
+                    // Check if slot is already booked globally
+                    const isBookedGlobally = allBookedSlots.includes(slot.raw.toISOString());
+                    
+                    // Also check if the current user has booked this, to be safe, though global check handles it
+                    const isBookedByUser = upcomingBookings.some(b => b.date.toISOString() === slot.raw.toISOString());
+
+                    if (isBookedGlobally || isBookedByUser) {
+                        btn.className = 'slot-btn disabled';
+                        btn.textContent = 'Unavailable';
+                        btn.disabled = true;
+                        btn.style.backgroundColor = '#e2e8f0';
+                        btn.style.color = '#94a3b8';
+                        btn.style.cursor = 'not-allowed';
+                        btn.style.border = '1px solid #cbd5e1';
+                    } else {
+                        btn.className = 'slot-btn';
+                        btn.textContent = slot.display;
+                        btn.addEventListener('click', () => openBookingModal(slot.raw, thisDay));
+                    }
                     slotsContainer.appendChild(btn);
                 });
             }
@@ -578,14 +617,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Reset checkbox
         bookMonthlyCheckbox.checked = false;
+        if (bookTenLessonsCheckbox) bookTenLessonsCheckbox.checked = false;
         confirmCostDisplay.textContent = '1 Credit';
 
         // Show/hide monthly option based on remaining credits
-        if (userCredits >= 4) {
+        if (userCredits >= 4 && userCredits < 10) {
             monthlyBookingOption.classList.remove('hidden');
         } else {
             monthlyBookingOption.classList.add('hidden');
             bookMonthlyCheckbox.checked = false; // ensure un-checked
+        }
+
+        // Show/hide 10 lesson option based on remaining credits
+        if (tenLessonsBookingOption) {
+            if (userCredits >= 10) {
+                tenLessonsBookingOption.classList.remove('hidden');
+            } else {
+                tenLessonsBookingOption.classList.add('hidden');
+                if (bookTenLessonsCheckbox) bookTenLessonsCheckbox.checked = false;
+            }
         }
 
         bookingModal.classList.remove('hidden');
@@ -691,11 +741,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         // ---- Booking Modal Logic ----
         bookMonthlyCheckbox.addEventListener('change', (e) => {
             if (e.target.checked) {
+                if (bookTenLessonsCheckbox) bookTenLessonsCheckbox.checked = false; // Mutually exclusive
                 confirmCostDisplay.textContent = '4 Credits';
             } else {
                 confirmCostDisplay.textContent = '1 Credit';
             }
         });
+
+        if (bookTenLessonsCheckbox) {
+            bookTenLessonsCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    bookMonthlyCheckbox.checked = false; // Mutually exclusive
+                    confirmCostDisplay.textContent = '10 Credits';
+                } else {
+                    confirmCostDisplay.textContent = '1 Credit';
+                }
+            });
+        }
 
         cancelBookingBtn.addEventListener('click', () => {
             bookingModal.classList.add('hidden');
@@ -704,7 +766,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         confirmBookingBtn.addEventListener('click', async () => {
             const isMonthly = bookMonthlyCheckbox.checked;
-            const requiredCredits = isMonthly ? 4 : 1;
+            const isTenLessons = bookTenLessonsCheckbox && bookTenLessonsCheckbox.checked;
+            let requiredCredits = 1;
+            
+            if (isMonthly) requiredCredits = 4;
+            else if (isTenLessons) requiredCredits = 10;
 
             if (userCredits < requiredCredits) {
                 alert(`You need ${requiredCredits} credits for this booking. You only have ${userCredits} left.`);
@@ -719,22 +785,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Create booking records
             const bookingInserts = [];
-            if (isMonthly) {
-                for (let i = 0; i < 4; i++) {
-                    const nextDate = new Date(selectedDate);
-                    nextDate.setDate(selectedDate.getDate() + (i * 7));
-                    bookingInserts.push({
-                        user_id: session.user.id,
-                        booking_date: nextDate.toISOString(),
-                        is_monthly: true,
-                        status: 'confirmed'
-                    });
-                }
-            } else {
+            
+            let numLessons = 1;
+            if (isMonthly) numLessons = 4;
+            else if (isTenLessons) numLessons = 10;
+            
+            for (let i = 0; i < numLessons; i++) {
+                const nextDate = new Date(selectedDate);
+                nextDate.setDate(selectedDate.getDate() + (i * 7));
                 bookingInserts.push({
                     user_id: session.user.id,
-                    booking_date: selectedDate.toISOString(),
-                    is_monthly: false,
+                    booking_date: nextDate.toISOString(),
+                    is_monthly: isMonthly, // Keep for backward compatibility
+                    is_ten_lessons: isTenLessons, // We will need to alter the database slightly or just use existing.
                     status: 'confirmed'
                 });
             }
@@ -759,22 +822,75 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Add to local UI array
                 bookingInserts.forEach(b => {
-                    upcomingBookings.push({ date: new Date(b.booking_date), isMonthly: b.is_monthly });
+                    upcomingBookings.push({ 
+                        date: new Date(b.booking_date), 
+                        isMonthly: b.is_monthly,
+                        isTenLessons: b.is_ten_lessons 
+                    });
+                    
+                    // Also add to global slots to immediately block it from others
+                    allBookedSlots.push(b.booking_date);
                 });
 
                 updateDashboard();
+                renderCalendar(); // Re-render to show disabled slots immediately
 
                 bookingModal.classList.add('hidden');
                 confirmBookingBtn.textContent = btnOriginal;
 
-                alert(isMonthly
-                    ? 'Monthly slot secured! 4 credits deducted.'
-                    : 'Lesson booked! 1 credit deducted.');
+                let successMsg = 'Lesson booked! 1 credit deducted.';
+                if (isMonthly) successMsg = 'Monthly slot secured! 4 credits deducted.';
+                else if (isTenLessons) successMsg = '10-Lesson slot secured! 10 credits deducted.';
+                
+                alert(successMsg);
             } else {
                 confirmBookingBtn.textContent = btnOriginal;
                 alert('Failed to update credits.');
             }
         });
+
+        // ---- Contact Form Logic ----
+        const portalContactForm = document.getElementById('booking-portal-form');
+        if (portalContactForm) {
+            portalContactForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const submitBtn = portalContactForm.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+                
+                submitBtn.textContent = 'Sending...';
+                submitBtn.disabled = true;
+
+                const formData = {
+                    name: document.getElementById('portal-name-hidden').value,
+                    email: document.getElementById('portal-email').value,
+                    service: "Booking Portal Help",
+                    message: document.getElementById('portal-message').value
+                };
+
+                try {
+                    const res = await fetch('/.netlify/functions/public-action', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'submit_contact_form',
+                            data: formData
+                        })
+                    });
+
+                    if (!res.ok) throw new Error('Failed to send message.');
+
+                    portalContactForm.reset();
+                    alert('Message sent successfully! Teacher Andrew will reply to your email soon.');
+                } catch (err) {
+                    console.error(err);
+                    alert('Error sending message. Please try again or use direct email if the issue persists.');
+                } finally {
+                    submitBtn.textContent = originalBtnText;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
 
     }
 
