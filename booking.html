@@ -234,10 +234,22 @@
                                 <input type="checkbox" id="book-monthly-checkbox">
                                 <span class="checkmark"></span>
                                 <div class="checkbox-text">
-                                    <strong>Secure this slot monthly</strong>
+                                    <strong>Secure this slot for 4 weeks</strong>
                                     <span class="cost-badge" id="monthly-cost-badge">4 Credits</span>
-                                    <p class="small-desc">Automatically book this weekly time for the next 4 weeks.
-                                        (Requires 10-Lesson Package)</p>
+                                    <p class="small-desc">Automatically book this weekly time for the next 4 weeks. (Requires 4+ Credits)</p>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <!-- 10-Lesson Booking Option -->
+                        <div class="monthly-booking-option hidden" id="ten-lessons-booking-option" style="margin-top: 10px;">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="book-ten-lessons-checkbox">
+                                <span class="checkmark" style="border-color: var(--accent);"></span>
+                                <div class="checkbox-text">
+                                    <strong>Secure this slot for 10 weeks</strong>
+                                    <span class="cost-badge" id="ten-lessons-cost-badge" style="background: var(--accent); color: var(--primary-color);">10 Credits</span>
+                                    <p class="small-desc">Automatically book this weekly time for the next 10 weeks. Your guaranteed slot.</p>
                                 </div>
                             </label>
                         </div>
@@ -250,12 +262,28 @@
                     </div>
                 </div>
 
-                <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem; padding: 1rem;">
-                    <p style="color: #475569; font-size: 1.1rem;">
-                        Need to contact Teacher Andrew? Please email directly at: <br>
-                        <a href="mailto:andrew100br@gmail.com"
-                            style="color: var(--primary-color); font-weight: 700; text-decoration: underline;">andrew100br@gmail.com</a>
-                    </p>
+                <div class="contact-form-wrapper" style="margin-top: 2rem; margin-bottom: 2rem; padding: 2rem; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: left;">
+                    <form action="https://formsubmit.co/andrew100br@gmail.com" method="POST" id="booking-portal-form" class="booking-form" style="max-width: 500px; margin: 0 auto;">
+                        <input type="hidden" name="_captcha" value="false">
+                        <input type="hidden" name="_subject" value="New Inquiry from Booking Portal">
+                        <input type="hidden" name="_next" value="https://magenta-kleicha-7d4887.netlify.app/booking.html">
+                        <input type="hidden" name="name" id="portal-name-hidden" value="Unknown Client">
+
+                        <h3 style="margin-bottom: 1rem; text-align: center;"><i class="ph ph-envelope-simple"></i> Contact Teacher Andrew</h3>
+                        <p style="margin-bottom: 1.5rem; text-align: center; color: var(--text-light); font-size: 0.95rem;">
+                            Have a question or need to reschedule? Send a message directly to my email.
+                        </p>
+                        
+                        <div class="form-group">
+                            <label for="portal-email">Your Email Address</label>
+                            <input type="email" id="portal-email" name="email" required placeholder="tilly@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="portal-message">Message</label>
+                            <textarea id="portal-message" name="message" rows="4" required placeholder="How can I help you today?"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Send Message</button>
+                    </form>
                 </div>
 
                 <div class="auth-header" style="text-align: center; margin-top: 2rem;">
