@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     action: 'cancel_booking',
                     password: MOCK_ADMIN_PASS,
-                    payload: { bookingId, userId, currentCredits, refund }
+                    payload: { bookingId, userId, refund }
                 })
             });
             if (!res.ok) throw new Error(await res.text());
@@ -353,18 +353,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.openAdminReschedule = function (bookingId, currentIsoDate, userId, studentName, credits) {
-        rescheduleBookingId.value = bookingId;
-        rescheduleUserId.value = userId;
-        rescheduleStudentName.value = studentName;
-        rescheduleCredits.value = credits;
+        try {
+            rescheduleBookingId.value = bookingId;
+            rescheduleUserId.value = userId;
+            rescheduleStudentName.value = studentName;
+            rescheduleCredits.value = credits;
 
-        // Format current date for datetime-local input (YYYY-MM-DDThh:mm)
-        const d = new Date(currentIsoDate);
-        const pad = (n) => n < 10 ? '0' + n : n;
-        const formattedLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        rescheduleDatetime.value = formattedLocal;
-
-        rescheduleModal.style.display = 'flex';
+            // Format current date for datetime-local input (YYYY-MM-DDThh:mm)
+            const d = new Date(currentIsoDate);
+            if (!isNaN(d)) {
+                const pad = (n) => n < 10 ? '0' + n : n;
+                const formattedLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                rescheduleDatetime.value = formattedLocal;
+            }
+            
+            rescheduleModal.style.display = 'flex';
+        } catch(e) {
+            console.error("Error setting up reschedule modal:", e);
+            rescheduleModal.style.display = 'flex'; // Ensure it opens even if date fails
+        }
     };
 
     window.deleteAdminClient = async function (userId, studentName) {

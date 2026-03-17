@@ -82,7 +82,7 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'cancel_booking') {
-            const { bookingId, userId, currentCredits, refund } = payload;
+            const { bookingId, userId, refund } = payload;
 
             // Delete booking
             const { error: deleteError } = await supabase
@@ -92,8 +92,11 @@ exports.handler = async (event, context) => {
 
             if (deleteError) throw deleteError;
 
-            // Refund if needed
+            // Refund if needed dynamically from DB
             if (refund) {
+                const { data: profile } = await supabase.from('profiles').select('credits').eq('id', userId).single();
+                const currentCredits = profile ? parseInt(profile.credits, 10) || 0 : 0;
+                
                 const { error: refundError } = await supabase
                     .from('profiles')
                     .update({ credits: currentCredits + 1 })
