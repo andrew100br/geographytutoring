@@ -136,9 +136,19 @@
                     </div>
 
                     <div class="bookings-list-container">
-                        <h3>My Schedule</h3>
+                        <h3>Upcoming Lessons</h3>
                         <ul id="bookings-list" class="bookings-list">
-                            <li class="empty-bookings">No upcoming bookings. Select a time below to schedule!</li>
+                            <li class="empty-bookings">Loading upcoming schedule...</li>
+                        </ul>
+                    </div>
+
+                    <div class="bookings-list-container" style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                        <h3 style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: #64748b; font-size: 1rem;" id="toggle-history-btn">
+                            <span><i class="ph ph-clock-counter-clockwise"></i> Booking History</span>
+                            <i class="ph ph-caret-down" id="history-caret"></i>
+                        </h3>
+                        <ul id="history-list" class="bookings-list hidden" style="margin-top: 1rem; opacity: 0.8;">
+                            <li class="empty-bookings">No past history found.</li>
                         </ul>
                     </div>
                 </div>

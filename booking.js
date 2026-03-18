@@ -50,7 +50,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ---- State ----
     let isLoginMode = false;
     let userCredits = 0; // Starting user credits
-    let upcomingBookings = []; // Array to hold bookings
+    let upcomingBookings = []; // Array to hold active bookings
+    let pastBookings = []; // Array to hold history/cancelled/amended bookings
     let purchaseQty = 1;
     const PRICE_PER_LESSON = 30;
 
@@ -465,15 +466,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                     .from('bookings')
                     .select('*')
                     .eq('user_id', session.user.id)
-                    .gte('booking_date', new Date().toISOString());
+                    .order('booking_date', { ascending: true });
 
                 if (bookings) {
-                    upcomingBookings = bookings.map(b => ({
-                        date: new Date(b.booking_date),
-                        isMonthly: b.is_monthly,
-                        isTenLessons: b.is_ten_lessons, // For completeness
-                        id: b.id
-                    }));
+                    const now = new Date();
+                    upcomingBookings = [];
+                    pastBookings = [];
+
+                    bookings.forEach(b => {
+                        const bDate = new Date(b.booking_date);
+                        const bObj = {
+                            date: bDate,
+                            isMonthly: b.is_monthly,
+                            isTenLessons: b.is_ten_lessons,
+                            id: b.id,
+                            status: b.status || 'confirmed'
+                        };
+
+                        if (bObj.status === 'confirmed' && bDate >= now) {
+                            upcomingBookings.push(bObj);
+                        } else {
+                            // Any past booking or cancelled/amended goes to history
+                            pastBookings.push(bObj);
+                        }
+                    });
+
                     updateDashboard(); // re-render with the fetched data
                 }
             }
@@ -606,32 +623,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updateDashboard() {
         creditBalanceDisplay.textContent = userCredits;
 
-
-        bookingsList.innerHTML = '';
-        if (upcomingBookings.length === 0) {
-            bookingsList.innerHTML = '<li class="empty-bookings">No upcoming bookings. Select a time below to schedule!</li>';
-            return;
-        }
-
-        // Sort bookings by date
-        const sortedBookings = [...upcomingBookings].sort((a, b) => a.date - b.date);
-
         const formatter = new Intl.DateTimeFormat('en-US', {
             weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
             hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
         });
 
-        sortedBookings.forEach(booking => {
-            const li = document.createElement('li');
-            const typeLabel = booking.isMonthly ? 'Monthly Slot' : 'Single Lesson';
-            const typeClass = booking.isMonthly ? 'monthly' : '';
+        // 1. Render Upcoming
+        bookingsList.innerHTML = '';
+        if (upcomingBookings.length === 0) {
+            bookingsList.innerHTML = '<li class="empty-bookings">No upcoming bookings. Select a time below to schedule!</li>';
+        } else {
+            const sortedBookings = [...upcomingBookings].sort((a, b) => a.date - b.date);
+            sortedBookings.forEach(booking => {
+                const li = document.createElement('li');
+                // Removed 'Single Lesson' labels, per user instructions changed to 'Confirmed'
+                li.innerHTML = `
+                    <span class="booking-item-date">${formatter.format(booking.date)}</span>
+                    <span class="booking-item-type" style="background:#dcfce7; color:#16a34a;"><i class="ph ph-check-circle"></i> Confirmed ${booking.isMonthly ? '(Monthly)' : ''}</span>
+                `;
+                bookingsList.appendChild(li);
+            });
+        }
 
-            li.innerHTML = `
-                <span class="booking-item-date">${formatter.format(booking.date)}</span>
-                <span class="booking-item-type ${typeClass}">${typeLabel}</span>
-            `;
-            bookingsList.appendChild(li);
-        });
+        // 2. Render History
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
+        if (pastBookings.length === 0) {
+            historyList.innerHTML = '<li class="empty-bookings">No past history found.</li>';
+        } else {
+            // Sort history descending (newest first)
+            const sortedHistory = [...pastBookings].sort((a, b) => b.date - a.date);
+            sortedHistory.forEach(booking => {
+                const li = document.createElement('li');
+                
+                let badgeStyle = "background:#f1f5f9; color:#475569;";
+                let label = "Completed";
+                
+                if (booking.status === 'cancelled') {
+                    badgeStyle = "background:#fee2e2; color:#dc2626;";
+                    label = "Cancelled";
+                } else if (booking.status === 'amended') {
+                    badgeStyle = "background:#ffedd5; color:#ea580c;";
+                    label = "Rescheduled";
+                }
+
+                li.innerHTML = `
+                    <span class="booking-item-date" style="color: #64748b;">${formatter.format(booking.date)}</span>
+                    <span class="booking-item-type" style="${badgeStyle}">${label}</span>
+                `;
+                historyList.appendChild(li);
+            });
+        }
     }
 
     // ---- Booking Modal Logic ----
@@ -688,6 +730,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentWeekStart.setDate(currentWeekStart.getDate() + 7);
             renderCalendar();
         });
+
+        // ---- History Toggle Logic ----
+        const toggleHistoryBtn = document.getElementById('toggle-history-btn');
+        const historyListEl = document.getElementById('history-list');
+        const historyCaret = document.getElementById('history-caret');
+        
+        if (toggleHistoryBtn) {
+            toggleHistoryBtn.addEventListener('click', () => {
+                if (historyListEl.classList.contains('hidden')) {
+                    historyListEl.classList.remove('hidden');
+                    historyCaret.classList.replace('ph-caret-down', 'ph-caret-up');
+                } else {
+                    historyListEl.classList.add('hidden');
+                    historyCaret.classList.replace('ph-caret-up', 'ph-caret-down');
+                }
+            });
+        }
 
         // ---- Top-Up Logic ----
         qtyMinusBtn.addEventListener('click', () => {

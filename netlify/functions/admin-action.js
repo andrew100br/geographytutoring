@@ -84,10 +84,10 @@ exports.handler = async (event, context) => {
         if (action === 'cancel_booking') {
             const { bookingId, userId, refund } = payload;
 
-            // Delete booking
+            // Soft-delete the booking by marking status as cancelled
             const { error: deleteError } = await supabase
                 .from('bookings')
-                .delete()
+                .update({ status: 'cancelled' })
                 .eq('id', bookingId);
 
             if (deleteError) throw deleteError;
@@ -111,12 +111,31 @@ exports.handler = async (event, context) => {
         if (action === 'reschedule_booking') {
             const { bookingId, newIsoString, refund, userId } = payload;
 
-            const { error } = await supabase
+            // 1. Fetch the old booking to clone it
+            const { data: oldBooking, error: fetchError } = await supabase
                 .from('bookings')
-                .update({ booking_date: newIsoString })
-                .eq('id', bookingId);
+                .select('*')
+                .eq('id', bookingId)
+                .single();
+            if (fetchError) throw fetchError;
 
-            if (error) throw error;
+            // 2. Mark the old booking as amended
+            const { error: updateError } = await supabase
+                .from('bookings')
+                .update({ status: 'amended' })
+                .eq('id', bookingId);
+            if (updateError) throw updateError;
+
+            // 3. Insert a new booking with the new date
+            const { error: insertError } = await supabase
+                .from('bookings')
+                .insert([{
+                    user_id: oldBooking.user_id,
+                    booking_date: newIsoString,
+                    is_monthly: oldBooking.is_monthly,
+                    status: 'confirmed'
+                }]);
+            if (insertError) throw insertError;
 
             if (refund && userId) {
                 const { data: profile } = await supabase.from('profiles').select('credits').eq('id', userId).single();

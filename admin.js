@@ -181,8 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .from('bookings')
             .select('*')
             .eq('user_id', userId)
-            .gte('booking_date', new Date().toISOString()) // Only future or current, or we can fetch all and filter
-            .order('booking_date', { ascending: true });
+            .order('booking_date', { descending: true });
 
         bookingsUl.innerHTML = '';
 
@@ -192,13 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Determine Membership Type
-        // Logic: 
-        // 1. If currently has active "is_monthly" true bookings in the future -> Monthly Subscribed
-        // 2. Else if has future bookings or credits > 0 -> Pay As You Go
-        // 3. Else -> In Trial / Lead
         const now = new Date();
-        const futureBookings = bookings ? bookings.filter(b => new Date(b.booking_date) >= now) : [];
+        const futureBookings = bookings ? bookings.filter(b => b.status === 'confirmed' && new Date(b.booking_date) >= now).sort((a,b) => new Date(a.booking_date) - new Date(b.booking_date)) : [];
         const hasMonthly = futureBookings.some(b => b.is_monthly);
 
         if (hasMonthly) {
@@ -209,15 +203,16 @@ document.addEventListener('DOMContentLoaded', () => {
             detailsMembership.innerHTML = '<span style="color: #ea580c;">Trial / Lead</span>';
         }
 
-        if (futureBookings.length === 0) {
-            bookingsUl.innerHTML = '<li style="padding: 1rem; text-align: center; color: #94a3b8;">No upcoming bookings scheduled.</li>';
+        if (!bookings || bookings.length === 0) {
+            bookingsUl.innerHTML = '<li style="padding: 1rem; text-align: center; color: #94a3b8;">No bookings found.</li>';
         } else {
             const formatter = new Intl.DateTimeFormat('en-US', {
                 weekday: 'short', month: 'short', day: 'numeric',
                 hour: 'numeric', minute: '2-digit'
             });
 
-            futureBookings.forEach(b => {
+            bookings.forEach(b => {
+                const isFutureConfirmed = b.status === 'confirmed' && new Date(b.booking_date) >= now;
                 const li = document.createElement('li');
                 li.style.padding = '0.75rem 1rem';
                 li.style.borderBottom = '1px solid var(--border-color)';
@@ -226,34 +221,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.style.alignItems = 'center';
 
                 const dtStr = formatter.format(new Date(b.booking_date));
-                const badge = b.is_monthly
-                    ? `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Monthly Slot</span>`
-                    : `<span style="background: #f1f5f9; color: #475569; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Single Lesson</span>`;
+                let badge = '';
+
+                if (isFutureConfirmed) {
+                    badge = b.is_monthly
+                        ? `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>`
+                        : `<span style="background: #dcfce7; color: #16a34a; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
+                } else if (b.status === 'cancelled') {
+                    badge = `<span style="background: #fee2e2; color: #dc2626; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Cancelled</span>`;
+                } else if (b.status === 'amended') {
+                    badge = `<span style="background: #ffedd5; color: #ea580c; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
+                } else {
+                    badge = `<span style="background: #f1f5f9; color: #475569; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Completed</span>`;
+                }
 
                 const infoDiv = document.createElement('div');
-                infoDiv.innerHTML = `<span>${dtStr}</span> ${badge}`;
-
-                const rescheduleBtn = document.createElement('button');
-                rescheduleBtn.className = 'btn btn-outline';
-                rescheduleBtn.style.padding = '0.2rem 0.5rem';
-                rescheduleBtn.style.fontSize = '0.75rem';
-                rescheduleBtn.innerHTML = '<i class="ph ph-calendar-blank"></i> Amend';
-                rescheduleBtn.onclick = () => openAdminReschedule(b.id, b.booking_date, userId, studentName, credits);
-
-                const cancelBtn = document.createElement('button');
-                cancelBtn.className = 'btn btn-outline';
-                cancelBtn.style.padding = '0.2rem 0.5rem';
-                cancelBtn.style.fontSize = '0.75rem';
-                cancelBtn.style.color = '#dc2626';
-                cancelBtn.style.borderColor = '#fca5a5';
-                cancelBtn.innerHTML = '<i class="ph ph-trash"></i> Cancel';
-                cancelBtn.onclick = () => cancelAdminBooking(b.id, userId, studentName, credits);
+                infoDiv.innerHTML = `<span style="${!isFutureConfirmed ? 'color:#94a3b8;' : ''}">${dtStr}</span> &nbsp; ${badge}`;
 
                 const actionsDiv = document.createElement('div');
                 actionsDiv.style.display = 'flex';
                 actionsDiv.style.gap = '0.5rem';
-                actionsDiv.appendChild(rescheduleBtn);
-                actionsDiv.appendChild(cancelBtn);
+
+                if (isFutureConfirmed) {
+                    const rescheduleBtn = document.createElement('button');
+                    rescheduleBtn.className = 'btn btn-outline';
+                    rescheduleBtn.style.padding = '0.2rem 0.5rem';
+                    rescheduleBtn.style.fontSize = '0.75rem';
+                    rescheduleBtn.innerHTML = '<i class="ph ph-calendar-blank"></i> Amend';
+                    rescheduleBtn.onclick = () => openAdminReschedule(b.id, b.booking_date, userId, studentName, credits);
+
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.className = 'btn btn-outline';
+                    cancelBtn.style.padding = '0.2rem 0.5rem';
+                    cancelBtn.style.fontSize = '0.75rem';
+                    cancelBtn.style.color = '#dc2626';
+                    cancelBtn.style.borderColor = '#fca5a5';
+                    cancelBtn.innerHTML = '<i class="ph ph-trash"></i> Cancel';
+                    cancelBtn.onclick = () => cancelAdminBooking(b.id, userId, studentName, credits);
+
+                    actionsDiv.appendChild(rescheduleBtn);
+                    actionsDiv.appendChild(cancelBtn);
+                }
 
                 li.appendChild(infoDiv);
                 li.appendChild(actionsDiv);
