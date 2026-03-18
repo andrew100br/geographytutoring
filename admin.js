@@ -318,6 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const bookingId = rescheduleBookingId.value;
             const newIsoString = new Date(rescheduleDatetime.value).toISOString();
+            const refund = document.getElementById('reschedule-refund-checkbox') ? document.getElementById('reschedule-refund-checkbox').checked : false;
+            const userId = rescheduleUserId.value;
 
             const originalText = rescheduleSubmitBtn.innerHTML;
             rescheduleSubmitBtn.innerHTML = 'Processing...';
@@ -330,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({
                         action: 'reschedule_booking',
                         password: MOCK_ADMIN_PASS,
-                        payload: { bookingId, newIsoString }
+                        payload: { bookingId, newIsoString, refund, userId }
                     })
                 });
                 if (!res.ok) throw new Error(await res.text());
@@ -344,7 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) {
                 alert('Failed to reschedule booking.');
             } else {
-                alert('Booking successfully amended!');
+                let msg = 'Booking successfully amended!';
+                if (refund) msg += ' 1 credit was refunded.';
+                alert(msg);
                 rescheduleModal.style.display = 'none';
                 detailsModal.style.display = 'none'; // Close details so they can reload
                 loadDashboardData();
@@ -358,6 +362,9 @@ document.addEventListener('DOMContentLoaded', () => {
             rescheduleUserId.value = userId;
             rescheduleStudentName.value = studentName;
             rescheduleCredits.value = credits;
+
+            const refundCheckbox = document.getElementById('reschedule-refund-checkbox');
+            if (refundCheckbox) refundCheckbox.checked = false;
 
             // Format current date for datetime-local input (YYYY-MM-DDThh:mm)
             const d = new Date(currentIsoDate);

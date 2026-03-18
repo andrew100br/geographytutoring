@@ -109,7 +109,7 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'reschedule_booking') {
-            const { bookingId, newIsoString } = payload;
+            const { bookingId, newIsoString, refund, userId } = payload;
 
             const { error } = await supabase
                 .from('bookings')
@@ -117,6 +117,19 @@ exports.handler = async (event, context) => {
                 .eq('id', bookingId);
 
             if (error) throw error;
+
+            if (refund && userId) {
+                const { data: profile } = await supabase.from('profiles').select('credits').eq('id', userId).single();
+                const currentCredits = profile ? parseInt(profile.credits, 10) || 0 : 0;
+                
+                const { error: refundError } = await supabase
+                    .from('profiles')
+                    .update({ credits: currentCredits + 1 })
+                    .eq('id', userId);
+
+                if (refundError) throw refundError;
+            }
+
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 

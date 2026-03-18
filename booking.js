@@ -655,7 +655,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         confirmCostDisplay.textContent = '1 Credit';
 
         // Show/hide monthly option based on remaining credits
-        if (userCredits >= 4 && userCredits < 10) {
+        if (userCredits >= 4) {
             monthlyBookingOption.classList.remove('hidden');
         } else {
             monthlyBookingOption.classList.add('hidden');

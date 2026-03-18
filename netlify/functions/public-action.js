@@ -24,7 +24,8 @@ exports.handler = async (event, context) => {
                 email: email,
                 message: message,
                 service: service || "N/A",
-                _subject: `New Inquiry from ${name}`
+                _subject: `New Inquiry from ${name}`,
+                _replyto: email
             });
 
             const host = event.headers.host || 'teacher-andrew.com';
