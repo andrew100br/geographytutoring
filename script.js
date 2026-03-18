@@ -160,16 +160,14 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const res = await fetch('/.netlify/functions/public-action', {
+                const res = await fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'submit_contact_form',
-                        data: formData
-                    })
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(formData)
                 });
 
-                if (!res.ok) throw new Error('Failed to send message.');
+                const data = await res.json();
+                if (!res.ok || data.success === 'false') throw new Error(data.message || 'Failed to send message.');
 
                 contactForm.reset();
                 if (formStatus) {
