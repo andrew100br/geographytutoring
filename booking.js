@@ -512,11 +512,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Wait, easier: `YYYY-MM-DDTHH:MM:00+07:00` parses correctly into local time.
 
         const schedule = {
-            1: ['17:00', '18:00'], // Monday
+            1: ['17:00'],          // Monday
             2: ['17:00'],          // Tuesday
             3: ['17:00'],          // Wednesday
-            4: ['17:00'],          // Thursday
-            5: [],                 // Friday
+            4: ['17:00', '18:00'], // Thursday
+            5: ['17:00'],          // Friday
             6: [],                 // Saturday
             0: ['16:00', '17:00', '18:00'] // Sunday
         };

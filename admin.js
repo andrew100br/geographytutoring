@@ -148,8 +148,29 @@ document.addEventListener('DOMContentLoaded', () => {
         statStudents.textContent = totalStudents;
         statCredits.textContent = totalCredits;
 
-        // Calculate estimated revenue from outstanding credits
-        statRevenue.textContent = `$${totalCredits * LESSON_PRICE}`;
+        // Fetch past bookings to calculate actual revenue
+        let actualRevenue = 0;
+        const now = new Date();
+        try {
+            // We fetch all past bookings to see which ones actually happened
+            const { data: allBookings, error: bErr } = await supabase
+                .from('bookings')
+                .select('booking_date, status');
+            
+            if (!bErr && allBookings) {
+                allBookings.forEach(b => {
+                    const bDate = new Date(b.booking_date);
+                    // Only count if it's in the past AND not cancelled or amended
+                    if (bDate < now && b.status !== 'cancelled' && b.status !== 'amended') {
+                        actualRevenue += LESSON_PRICE;
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Error fetching completed bookings for revenue:", e);
+        }
+
+        statRevenue.textContent = `$${actualRevenue}`;
     }
 
     // ---- Admin Chat Logic Removed ----
