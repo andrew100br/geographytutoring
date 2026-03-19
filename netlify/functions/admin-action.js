@@ -10,7 +10,7 @@ exports.handler = async (event, context) => {
         const { action, payload, password } = JSON.parse(event.body);
 
         // Very basic hardcoded admin authentication matching the frontend mockup
-        if (password !== 'password123') {
+        if (password !== 'EnaPatchy!10') {
             return {
                 statusCode: 401,
                 body: JSON.stringify({ error: 'Unauthorized. Incorrect admin password.' })

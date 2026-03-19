@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Hardcoded Admin Credentials for Mockup
     const MOCK_ADMIN_USER = 'admin';
-    const MOCK_ADMIN_PASS = 'password123';
+    const MOCK_ADMIN_PASS = 'EnaPatchy!10';
     const LESSON_PRICE = 25; // £25 per lesson
 
     // ---- Admin Auth Logic ----
