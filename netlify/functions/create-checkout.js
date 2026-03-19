@@ -10,7 +10,7 @@ exports.handler = async (event, context) => {
         const { quantity, userId, userEmail, successUrl, cancelUrl } = JSON.parse(event.body);
 
         // Define the lesson bundle price and product description
-        const unitAmount = 3000; // $30.00 in cents
+        const unitAmount = 2500; // £25.00 in pence
 
         // Create a Stripe Checkout Session
         const session = await stripe.checkout.sessions.create({
@@ -18,13 +18,13 @@ exports.handler = async (event, context) => {
             line_items: [
                 {
                     price_data: {
-                        currency: 'usd',
+                        currency: 'gbp',
                         product_data: {
                             name: quantity === 10 ? '10-Lesson Geography Bundle' : 'Geography Lesson Credit',
                             description: quantity === 10 ? 'A bundle of 10 lesson credits at a discounted rate.' : 'A single lesson credit.',
                         },
-                        // If it's the 10-bundle, we charge 270 instead of 300
-                        unit_amount: quantity === 10 ? 27000 : unitAmount,
+                        // If it's the 10-bundle, we charge 225 instead of 250
+                        unit_amount: quantity === 10 ? 22500 : unitAmount,
                     },
                     // If it's a 10 bundle, we are buying '1' bundle item
                     quantity: quantity === 10 ? 1 : quantity,

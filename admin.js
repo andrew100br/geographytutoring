@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hardcoded Admin Credentials for Mockup
     const MOCK_ADMIN_USER = 'admin';
     const MOCK_ADMIN_PASS = 'password123';
-    const LESSON_PRICE = 30; // $30 per lesson
+    const LESSON_PRICE = 25; // £25 per lesson
 
     // ---- Admin Auth Logic ----
 
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error fetching completed bookings for revenue:", e);
         }
 
-        statRevenue.textContent = `$${actualRevenue}`;
+        statRevenue.textContent = `£${actualRevenue}`;
     }
 
     // ---- Admin Chat Logic Removed ----

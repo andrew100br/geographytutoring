@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let upcomingBookings = []; // Array to hold active bookings
     let pastBookings = []; // Array to hold history/cancelled/amended bookings
     let purchaseQty = 1;
-    const PRICE_PER_LESSON = 30;
+    const PRICE_PER_LESSON = 25;
 
     let currentWeekStart = new Date();
     // Normalize to start of current week (Monday)
@@ -753,7 +753,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (purchaseQty > 1) {
                 purchaseQty--;
                 buyQtyDisplay.textContent = purchaseQty;
-                buyTotalPrice.textContent = `$${purchaseQty * PRICE_PER_LESSON}`;
+                buyTotalPrice.textContent = `£${purchaseQty * PRICE_PER_LESSON}`;
                 if (purchaseQty <= 1) qtyMinusBtn.classList.add('disabled');
             }
         });
@@ -761,7 +761,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         qtyPlusBtn.addEventListener('click', () => {
             purchaseQty++;
             buyQtyDisplay.textContent = purchaseQty;
-            buyTotalPrice.textContent = `$${purchaseQty * PRICE_PER_LESSON}`;
+            buyTotalPrice.textContent = `£${purchaseQty * PRICE_PER_LESSON}`;
             qtyMinusBtn.classList.remove('disabled');
         });
 
