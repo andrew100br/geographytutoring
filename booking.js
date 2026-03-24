@@ -80,7 +80,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             const data = await res.json();
             if (data.bookedSlots) {
-                allBookedSlots = data.bookedSlots;
+                // Ensure precise ISO string matching
+                allBookedSlots = data.bookedSlots.map(d => new Date(d).toISOString());
             }
         } catch (err) {
             console.error("Failed to fetch all booked slots", err);
@@ -1036,16 +1037,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 const data = await res.json();
                 if (data.bookedSlots) {
-                    const newStr = JSON.stringify(data.bookedSlots);
+                    const normalized = data.bookedSlots.map(d => new Date(d).toISOString());
+                    const newStr = JSON.stringify(normalized);
                     const oldStr = JSON.stringify(allBookedSlots);
                     if (newStr !== oldStr) {
                         allBookedSlots.length = 0;
-                        allBookedSlots.push(...data.bookedSlots);
+                        allBookedSlots.push(...normalized);
                         renderCalendar(); // Refresh UI cleanly
                     }
                 }
             } catch (err) { console.error('Silent sync error', err); }
-        }, 8000); // 8 second polling interval
+        }, 5000); // 5 second polling interval
     }
 
 });
