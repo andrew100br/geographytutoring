@@ -136,6 +136,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 credits = profile.credits || 0;
                 parentName = profile.parent_name || "Parent";
             }
+            
+            // Set dynamic welcome message
+            const welcomeMsgText = document.getElementById('welcome-message-text');
+            if (welcomeMsgText && parentName) {
+                welcomeMsgText.textContent = `Welcome back, ${parentName}! Select a time below to book a new lesson.`;
+            }
 
             // ---- Process Stripe Return ----
             const urlParams = new URLSearchParams(window.location.search);
