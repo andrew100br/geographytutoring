@@ -600,7 +600,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Also check if the current user has booked this, to be safe, though global check handles it
                     const isBookedByUser = upcomingBookings.some(b => b.date.toISOString() === slot.raw.toISOString());
 
-                    if (isBookedGlobally || isBookedByUser) {
+                    if (isBookedByUser) {
+                        btn.className = 'slot-btn disabled booked-mine';
+                        btn.textContent = 'Booked';
+                        btn.disabled = true;
+                        btn.style.backgroundColor = '#dcfce7';
+                        btn.style.color = '#16a34a';
+                        btn.style.cursor = 'not-allowed';
+                        btn.style.border = '1px solid #bbf7d0';
+                    } else if (isBookedGlobally) {
                         btn.className = 'slot-btn disabled';
                         btn.textContent = 'Unavailable';
                         btn.disabled = true;
@@ -911,6 +919,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!profileError) {
                 userCredits = newCredits;
+
+                // Send email notification to admin via FormSubmit
+                try {
+                    const profileRes = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                    const pName = profileRes.data ? profileRes.data.parent_name : "Unknown Parent";
+                    const cName = profileRes.data ? profileRes.data.child_name : "Unknown Child";
+                    
+                    const datesStr = bookingInserts.map(b => new Date(b.booking_date).toLocaleString()).join('\\n');
+                    
+                    const emailData = {
+                        name: "System Notification",
+                        email: session.user.email,
+                        _subject: `New Booking Alert: ${cName} (${pName})`,
+                        message: `A new lesson has been booked.\\n\\nStudent: ${cName}\\nParent: ${pName}\\nDates:\\n${datesStr}\\n\\nCheck the admin portal for full details.`
+                    };
+                    
+                    fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(emailData)
+                    });
+                } catch (err) { console.error("Could not send email", err); }
 
                 // Add to local UI array
                 bookingInserts.forEach(b => {

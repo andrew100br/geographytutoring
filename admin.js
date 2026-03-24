@@ -148,26 +148,78 @@ document.addEventListener('DOMContentLoaded', () => {
         statStudents.textContent = totalStudents;
         statCredits.textContent = totalCredits;
 
-        // Fetch past bookings to calculate actual revenue
+        // Fetch bookings to calculate actual revenue & show upcoming schedule
         let actualRevenue = 0;
         const now = new Date();
+        const globalUpcomingList = document.getElementById('global-upcoming-list');
+        if (globalUpcomingList) globalUpcomingList.innerHTML = '<li style="color: #64748b;">Loading schedule...</li>';
+
         try {
             // We fetch all past bookings to see which ones actually happened
             const { data: allBookings, error: bErr } = await supabase
                 .from('bookings')
-                .select('booking_date, status');
+                .select('booking_date, status, user_id');
             
             if (!bErr && allBookings) {
+                const upcomingGlobal = [];
+                
                 allBookings.forEach(b => {
                     const bDate = new Date(b.booking_date);
                     // Only count if it's in the past AND not cancelled or amended
                     if (bDate < now && b.status !== 'cancelled' && b.status !== 'amended') {
                         actualRevenue += LESSON_PRICE;
                     }
+                    if (bDate >= now && b.status === 'confirmed') {
+                        upcomingGlobal.push(b);
+                    }
                 });
+
+                // Sort upcoming by chronological order
+                upcomingGlobal.sort((a,b) => new Date(a.booking_date) - new Date(b.booking_date));
+
+                if (globalUpcomingList) {
+                    globalUpcomingList.innerHTML = '';
+                    if (upcomingGlobal.length === 0) {
+                        globalUpcomingList.innerHTML = '<li style="color: #64748b;">No upcoming lessons scheduled.</li>';
+                    } else {
+                        const formatter = new Intl.DateTimeFormat('en-US', {
+                            weekday: 'short', month: 'short', day: 'numeric',
+                            hour: 'numeric', minute: '2-digit'
+                        });
+                        
+                        // Create a lookup map for student names
+                        const userMap = {};
+                        accounts.forEach(acc => {
+                            userMap[acc.id] = { child: acc.child_name, parent: acc.parent_name };
+                        });
+                        
+                        upcomingGlobal.forEach(b => {
+                            const li = document.createElement('li');
+                            li.style.padding = '0.75rem 0';
+                            li.style.borderBottom = '1px solid var(--border-color)';
+                            li.style.display = 'flex';
+                            li.style.justifyContent = 'space-between';
+                            
+                            const dtStr = formatter.format(new Date(b.booking_date));
+                            const names = userMap[b.user_id] || { child: 'Unknown', parent: 'Unknown' };
+                            
+                            li.innerHTML = `
+                                <div>
+                                    <strong style="color: #1e293b;">${dtStr}</strong><br>
+                                    <span style="font-size: 0.85rem; color: #475569;">Student: ${names.child} (Parent: ${names.parent})</span>
+                                </div>
+                                <div>
+                                    <span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>
+                                </div>
+                            `;
+                            globalUpcomingList.appendChild(li);
+                        });
+                    }
+                }
             }
         } catch (e) {
             console.error("Error fetching completed bookings for revenue:", e);
+            if (globalUpcomingList) globalUpcomingList.innerHTML = '<li style="color: #dc2626;">Failed to load schedule.</li>';
         }
 
         statRevenue.textContent = `£${actualRevenue}`;
