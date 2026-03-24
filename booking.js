@@ -1027,11 +1027,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // Setup Real-time Sync (Polling)
+        // Setup Complete Real-time Sync (Polling)
         setInterval(async () => {
             const { data: { session: currentSession } } = await supabase.auth.getSession();
             if (!currentSession) return;
             try {
+                let UI_needs_refresh = false;
+
+                // 1. Fetch Global Slots
                 const res = await fetch('/.netlify/functions/public-action', {
                     method: 'POST', body: JSON.stringify({ action: 'get_booked_slots' })
                 });
@@ -1043,9 +1046,72 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (newStr !== oldStr) {
                         allBookedSlots.length = 0;
                         allBookedSlots.push(...normalized);
-                        renderCalendar(); // Refresh UI cleanly
+                        UI_needs_refresh = true;
                     }
                 }
+
+                // 2. Fetch User's Profile (Credits)
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('credits')
+                    .eq('id', currentSession.user.id)
+                    .single();
+                if (profile && profile.credits !== userCredits) {
+                    userCredits = profile.credits;
+                    UI_needs_refresh = true;
+                }
+
+                // 3. Fetch User's Specific Bookings
+                const { data: latestBookings } = await supabase
+                    .from('bookings')
+                    .select('*')
+                    .eq('user_id', currentSession.user.id)
+                    .order('booking_date', { ascending: true });
+
+                if (latestBookings) {
+                    const now = new Date();
+                    const newUpcoming = [];
+                    const newPast = [];
+                    latestBookings.forEach(b => {
+                        const bDate = new Date(b.booking_date);
+                        if (b.status === 'confirmed' && bDate >= now) {
+                            newUpcoming.push({
+                                date: bDate,
+                                isMonthly: b.is_monthly,
+                                isTenLessons: b.is_ten_lessons,
+                                id: b.id,
+                                status: b.status
+                            });
+                        } else {
+                            newPast.push({
+                                date: bDate,
+                                isMonthly: b.is_monthly,
+                                isTenLessons: b.is_ten_lessons,
+                                id: b.id,
+                                status: b.status || 'confirmed'
+                            });
+                        }
+                    });
+
+                    const oldUpStr = JSON.stringify(upcomingBookings.map(b => b.date.toISOString() + b.status));
+                    const newUpStr = JSON.stringify(newUpcoming.map(b => b.date.toISOString() + b.status));
+                    const oldPastStr = JSON.stringify(pastBookings.map(b => b.date.toISOString() + b.status));
+                    const newPastStr = JSON.stringify(newPast.map(b => b.date.toISOString() + b.status));
+
+                    if (oldUpStr !== newUpStr || oldPastStr !== newPastStr) {
+                        upcomingBookings.length = 0;
+                        upcomingBookings.push(...newUpcoming);
+                        pastBookings.length = 0;
+                        pastBookings.push(...newPast);
+                        UI_needs_refresh = true;
+                    }
+                }
+
+                if (UI_needs_refresh) {
+                    updateDashboard();
+                    renderCalendar(); // Refresh UI cleanly
+                }
+
             } catch (err) { console.error('Silent sync error', err); }
         }, 5000); // 5 second polling interval
     }
