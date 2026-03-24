@@ -445,6 +445,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             hiddenNameInput.value = name;
         }
 
+        // Set dynamic welcome message upon explicit login
+        const welcomeMsgText = document.getElementById('welcome-message-text');
+        if (welcomeMsgText && name) {
+            welcomeMsgText.textContent = `Welcome back, ${name}! Select a time below to book a new lesson.`;
+        }
+
         // Set credits instantly
         userCredits = credits || 0;
         updateDashboard();
