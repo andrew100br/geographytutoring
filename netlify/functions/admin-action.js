@@ -69,6 +69,21 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        if (action === 'edit_user') {
+            const { userId, childName, parentName, country } = payload;
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({
+                    child_name: childName,
+                    parent_name: parentName,
+                    country: country
+                })
+                .eq('id', userId);
+            
+            if (updateError) throw updateError;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
         if (action === 'send_message') {
             const { userId, content } = payload;
             const { error } = await supabase.from('messages').insert([{

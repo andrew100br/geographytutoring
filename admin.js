@@ -121,6 +121,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 detailsBtn.innerHTML = '<i class="ph ph-list-dashes"></i> Details';
                 detailsBtn.onclick = () => openAdminDetails(data.id, data.child_name || data.parent_name, credits);
 
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-outline';
+                editBtn.style.padding = '0.3rem 0.8rem';
+                editBtn.style.fontSize = '0.8rem';
+                editBtn.style.color = '#0284c7';
+                editBtn.style.borderColor = '#bae6fd';
+                editBtn.innerHTML = '<i class="ph ph-pencil-simple"></i> Edit';
+                editBtn.onclick = () => openAdminEdit(data);
+
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'btn btn-outline';
                 deleteBtn.style.padding = '0.3rem 0.8rem';
@@ -131,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 deleteBtn.onclick = () => deleteAdminClient(data.id, data.child_name || data.parent_name);
 
                 tdActions.appendChild(detailsBtn);
+                tdActions.appendChild(editBtn);
                 tdActions.appendChild(deleteBtn);
 
                 tr.appendChild(tdChild);
@@ -554,4 +564,71 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ---- Admin Edit Client Logic ----
+    const editModal = document.getElementById('admin-edit-modal');
+    const closeEditBtn = document.getElementById('close-admin-edit');
+    const editForm = document.getElementById('admin-edit-form');
+    const editSubmitBtn = document.getElementById('edit-submit-btn');
+    const editErrorMsg = document.getElementById('edit-error-msg');
+
+    if (closeEditBtn) {
+        closeEditBtn.addEventListener('click', () => {
+            editModal.style.display = 'none';
+        });
+    }
+
+    window.openAdminEdit = function(userData) {
+        document.getElementById('edit-user-id').value = userData.id;
+        document.getElementById('edit-parent-name').value = userData.parent_name || '';
+        document.getElementById('edit-child-name').value = userData.child_name || '';
+        document.getElementById('edit-country').value = userData.country || '';
+        if (editErrorMsg) editErrorMsg.style.display = 'none';
+        if (editModal) editModal.style.display = 'flex';
+    };
+
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            editSubmitBtn.textContent = 'Saving...';
+            editSubmitBtn.disabled = true;
+            if (editErrorMsg) editErrorMsg.style.display = 'none';
+
+            const payload = {
+                userId: document.getElementById('edit-user-id').value,
+                parentName: document.getElementById('edit-parent-name').value,
+                childName: document.getElementById('edit-child-name').value,
+                country: document.getElementById('edit-country').value
+            };
+
+            try {
+                const res = await fetch('/.netlify/functions/admin-action', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'edit_user',
+                        password: MOCK_ADMIN_PASS,
+                        payload
+                    })
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'Failed to update account.');
+                }
+
+                alert('Account updated successfully!');
+                editModal.style.display = 'none';
+                loadDashboardData();
+            } catch (err) {
+                if (editErrorMsg) {
+                    editErrorMsg.textContent = err.message;
+                    editErrorMsg.style.display = 'block';
+                } else {
+                    alert(err.message);
+                }
+            } finally {
+                editSubmitBtn.textContent = 'Save Changes';
+                editSubmitBtn.disabled = false;
+            }
+        });
+    }
 });

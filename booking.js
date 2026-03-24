@@ -902,6 +902,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
+            // --- DOUBLE BOOKING CHECK ---
+            const datesToCheck = bookingInserts.map(b => b.booking_date);
+            const { data: existingSlots, error: existErr } = await supabase
+                .from('bookings')
+                .select('id')
+                .in('booking_date', datesToCheck)
+                .eq('status', 'confirmed');
+            
+            if (existingSlots && existingSlots.length > 0) {
+                alert('Sorry, one or more of these time slots have just been booked by another student! Please select a different time.');
+                confirmBookingBtn.textContent = btnOriginal;
+                return;
+            }
+
             const { error: bookingError } = await supabase.from('bookings').insert(bookingInserts);
 
             if (bookingError) {
@@ -1012,6 +1026,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        // Setup Real-time Sync (Polling)
+        setInterval(async () => {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (!currentSession) return;
+            try {
+                const res = await fetch('/.netlify/functions/public-action', {
+                    method: 'POST', body: JSON.stringify({ action: 'get_booked_slots' })
+                });
+                const data = await res.json();
+                if (data.bookedSlots) {
+                    const newStr = JSON.stringify(data.bookedSlots);
+                    const oldStr = JSON.stringify(allBookedSlots);
+                    if (newStr !== oldStr) {
+                        allBookedSlots.length = 0;
+                        allBookedSlots.push(...data.bookedSlots);
+                        renderCalendar(); // Refresh UI cleanly
+                    }
+                }
+            } catch (err) { console.error('Silent sync error', err); }
+        }, 8000); // 8 second polling interval
     }
 
 });
