@@ -105,9 +105,7 @@
             <div style="margin-bottom: 2rem;">
                 <h2 class="admin-section-title">Upcoming Schedule</h2>
                 <div style="background: white; border-radius: 8px; border: 1px solid var(--border-color); padding: 1rem;">
-                    <ul id="global-upcoming-list" style="list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto;">
-                        <li style="color: #64748b;">Loading schedule...</li>
-                    </ul>
+                    <div id="admin-calendar"></div>
                 </div>
             </div>
 
@@ -126,6 +124,7 @@
                             <th>Email</th>
                             <th>Location</th>
                             <th>Credit Balance</th>
+                            <th style="text-align: center;">Bookings (Active/Past)</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -278,6 +277,7 @@
     </main>
 
     <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
     <script src="admin.js"></script>

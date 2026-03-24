@@ -74,16 +74,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let totalStudents = accounts ? accounts.length : 0;
         let totalCredits = 0;
+        let actualRevenue = 0;
+
+        // Fetch bookings to calculate actual revenue, statistics, & show upcoming schedule
+        let allBookings = [];
+        let errorBookings = null;
+        try {
+            const { data: bData, error: bErr } = await supabase
+                .from('bookings')
+                .select('booking_date, status, user_id');
+            if (!bErr && bData) allBookings = bData;
+        } catch (e) {
+            errorBookings = e;
+        }
+
+        const now = new Date();
+        const userMap = {};
+        const upcomingGlobal = [];
+
+        accounts.forEach(acc => {
+            userMap[acc.id] = { child: acc.child_name, parent: acc.parent_name };
+        });
+
+        // Pre-calculate revenue & global calendar events
+        allBookings.forEach(b => {
+            const bDate = new Date(b.booking_date);
+            if (bDate < now && b.status !== 'cancelled' && b.status !== 'amended') {
+                actualRevenue += LESSON_PRICE;
+            }
+            if (bDate >= now && b.status === 'confirmed') {
+                upcomingGlobal.push(b);
+            }
+        });
 
         // Clear table
         studentTableBody.innerHTML = '';
 
         if (totalStudents === 0 || error) {
-            studentTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #64748b;">No student accounts have been created yet.</td></tr>`;
+            studentTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #64748b;">No student accounts have been created yet.</td></tr>`;
         } else {
             // Iterate through every account and build table rows
             accounts.forEach(data => {
                 totalCredits += (data.credits || 0);
+
+                // Calculate Active / Past Bookings
+                const userBookings = allBookings.filter(b => b.user_id === data.id);
+                let active = 0;
+                let past = 0;
+                userBookings.forEach(b => {
+                    const bDate = new Date(b.booking_date);
+                    if (b.status === 'confirmed' && bDate >= now) active++;
+                    else past++;
+                });
 
                 const tr = document.createElement('tr');
 
@@ -108,6 +150,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tdCredit = document.createElement('td');
                 const credits = data.credits || 0;
                 tdCredit.innerHTML = `<span class="badge-credit" ${credits === 0 ? 'style="background:#fee2e2; color:#991b1b;"' : ''}>${credits} Lessons</span>`;
+
+                // Bookings Count
+                const tdBookingsCount = document.createElement('td');
+                tdBookingsCount.style.textAlign = 'center';
+                tdBookingsCount.innerHTML = `<span style="color: #16a34a; font-weight: bold;">${active}</span> <span style="color: #cbd5e1;">/</span> <span style="color: #64748b;">${past}</span>`;
 
                 // Actions
                 const tdActions = document.createElement('td');
@@ -148,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.appendChild(tdEmail);
                 tr.appendChild(tdCountry);
                 tr.appendChild(tdCredit);
+                tr.appendChild(tdBookingsCount);
                 tr.appendChild(tdActions);
 
                 studentTableBody.appendChild(tr);
@@ -157,82 +205,35 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update High-Level Stats
         statStudents.textContent = totalStudents;
         statCredits.textContent = totalCredits;
-
-        // Fetch bookings to calculate actual revenue & show upcoming schedule
-        let actualRevenue = 0;
-        const now = new Date();
-        const globalUpcomingList = document.getElementById('global-upcoming-list');
-        if (globalUpcomingList) globalUpcomingList.innerHTML = '<li style="color: #64748b;">Loading schedule...</li>';
-
-        try {
-            // We fetch all past bookings to see which ones actually happened
-            const { data: allBookings, error: bErr } = await supabase
-                .from('bookings')
-                .select('booking_date, status, user_id');
-            
-            if (!bErr && allBookings) {
-                const upcomingGlobal = [];
-                
-                allBookings.forEach(b => {
-                    const bDate = new Date(b.booking_date);
-                    // Only count if it's in the past AND not cancelled or amended
-                    if (bDate < now && b.status !== 'cancelled' && b.status !== 'amended') {
-                        actualRevenue += LESSON_PRICE;
-                    }
-                    if (bDate >= now && b.status === 'confirmed') {
-                        upcomingGlobal.push(b);
-                    }
-                });
-
-                // Sort upcoming by chronological order
-                upcomingGlobal.sort((a,b) => new Date(a.booking_date) - new Date(b.booking_date));
-
-                if (globalUpcomingList) {
-                    globalUpcomingList.innerHTML = '';
-                    if (upcomingGlobal.length === 0) {
-                        globalUpcomingList.innerHTML = '<li style="color: #64748b;">No upcoming lessons scheduled.</li>';
-                    } else {
-                        const formatter = new Intl.DateTimeFormat('en-US', {
-                            weekday: 'short', month: 'short', day: 'numeric',
-                            hour: 'numeric', minute: '2-digit'
-                        });
-                        
-                        // Create a lookup map for student names
-                        const userMap = {};
-                        accounts.forEach(acc => {
-                            userMap[acc.id] = { child: acc.child_name, parent: acc.parent_name };
-                        });
-                        
-                        upcomingGlobal.forEach(b => {
-                            const li = document.createElement('li');
-                            li.style.padding = '0.75rem 0';
-                            li.style.borderBottom = '1px solid var(--border-color)';
-                            li.style.display = 'flex';
-                            li.style.justifyContent = 'space-between';
-                            
-                            const dtStr = formatter.format(new Date(b.booking_date));
-                            const names = userMap[b.user_id] || { child: 'Unknown', parent: 'Unknown' };
-                            
-                            li.innerHTML = `
-                                <div>
-                                    <strong style="color: #1e293b;">${dtStr}</strong><br>
-                                    <span style="font-size: 0.85rem; color: #475569;">Student: ${names.child} (Parent: ${names.parent})</span>
-                                </div>
-                                <div>
-                                    <span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>
-                                </div>
-                            `;
-                            globalUpcomingList.appendChild(li);
-                        });
-                    }
-                }
-            }
-        } catch (e) {
-            console.error("Error fetching completed bookings for revenue:", e);
-            if (globalUpcomingList) globalUpcomingList.innerHTML = '<li style="color: #dc2626;">Failed to load schedule.</li>';
-        }
-
         statRevenue.textContent = `£${actualRevenue}`;
+        
+        // Render FullCalendar
+        const calendarEl = document.getElementById('admin-calendar');
+        if (calendarEl) {
+            calendarEl.innerHTML = ''; // clear any existing instance
+
+            const events = upcomingGlobal.map(b => {
+                const names = userMap[b.user_id] || { child: 'Unknown' };
+                return {
+                    title: names.child, // Student name
+                    start: b.booking_date,
+                    allDay: false
+                };
+            });
+
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                events: events,
+                eventColor: '#0284c7', // Brand Color
+                height: 'auto',
+                eventTimeFormat: {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    meridiem: 'short'
+                }
+            });
+            calendar.render();
+        }
     }
 
     // ---- Admin Chat Logic Removed ----
