@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import ContactForm from '@/components/ContactForm';
 
 function generateThaiTimeSlots(baseDateStr: Date) {
   const schedule: Record<number, string[]> = {
@@ -81,7 +82,7 @@ export default function BookingPage() {
               latestBookings.forEach(b => {
                  const bDate = new Date(b.booking_date);
                  const bObj = { date: bDate, isMonthly: b.is_monthly, isTenLessons: b.is_ten_lessons, id: b.id, status: b.status || 'confirmed' };
-                 if (bObj.status === 'confirmed' && bDate >= now) newUpcoming.push(bObj);
+                 if ((bObj.status === 'confirmed' || bObj.status === 'rescheduled') && bDate >= now) newUpcoming.push(bObj);
                  else newPast.push(bObj);
               });
               
@@ -191,7 +192,7 @@ export default function BookingPage() {
       bookings.forEach(b => {
         const bDate = new Date(b.booking_date);
         const bObj = { date: bDate, isMonthly: b.is_monthly, isTenLessons: b.is_ten_lessons, id: b.id, status: b.status || 'confirmed' };
-        if (bObj.status === 'confirmed' && bDate >= now) upcoming.push(bObj);
+        if ((bObj.status === 'confirmed' || bObj.status === 'rescheduled') && bDate >= now) upcoming.push(bObj);
         else past.push(bObj);
       });
       setUpcomingBookings(upcoming);
@@ -339,7 +340,7 @@ export default function BookingPage() {
         <div className="calendar-box">
           <div className="calendar-header">
             <h2><i className="ph ph-calendar-check"></i> Dashboard & Booking</h2>
-            <p>Welcome back, {userProfile?.parent_name || 'Parent'}! Select a time below to book a new lesson. For any questions, please contact me at <a href="mailto:andrew100br@gmail.com" style={{color:'var(--primary-color)', textDecoration:'underline'}}>andrew100br@gmail.com</a>.</p>
+            <p>Welcome back, {userProfile?.parent_name || 'Parent'}! Select a time below to book a new lesson.</p>
           </div>
 
           <div className="user-dashboard">
@@ -348,6 +349,11 @@ export default function BookingPage() {
                 <h3><i className="ph ph-coins"></i> Credit Balance</h3>
                 <p className="stat-large">{userProfile?.credits || 0}</p>
                 <p className="stat-label">Lessons Remaining</p>
+              </div>
+              <div className="stat-card" style={{ borderLeft: '4px solid var(--primary-color)' }}>
+                <h3><i className="ph ph-calendar-blank"></i> Active Bookings</h3>
+                <p className="stat-large">{upcomingBookings.length}</p>
+                <p className="stat-label">Lessons Secured</p>
               </div>
             </div>
 
@@ -358,7 +364,7 @@ export default function BookingPage() {
                   upcomingBookings.sort((a,b)=>a.date.getTime()-b.date.getTime()).map((b, i) => (
                     <li key={i}>
                       <span className="booking-item-date">{new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}).format(b.date)}</span>
-                      <span className="booking-item-type" style={{background:'#dcfce7', color:'#16a34a'}}><i className="ph ph-check-circle"></i> Confirmed {b.isMonthly ? '(Monthly)' : ''}</span>
+                      <span className="booking-item-type" style={{background: b.status === 'rescheduled' ? '#ffedd5' : '#dcfce7', color: b.status === 'rescheduled' ? '#ea580c' : '#16a34a'}}><i className={`ph ph-${b.status === 'rescheduled' ? 'arrows-clockwise' : 'check-circle'}`}></i> {b.status === 'rescheduled' ? 'Rescheduled' : 'Confirmed'} {b.isMonthly ? '(Monthly)' : ''}</span>
                     </li>
                   ))}
               </ul>
@@ -386,6 +392,14 @@ export default function BookingPage() {
                     })}
                 </ul>
               )}
+            </div>
+
+            <div className="contact-section" style={{marginTop:'2rem', borderTop:'1px solid var(--border-color)', paddingTop:'1.5rem'}}>
+              <h3 style={{marginBottom:'1rem'}}><i className="ph ph-envelope-simple"></i> Message Andrew</h3>
+              <p style={{marginBottom:'1.5rem', fontSize:'0.9rem', color:'#64748b', background:'#f8fafc', padding:'1rem', borderRadius:8}}>
+                <strong>Note:</strong> This form is for initial contact only. After first contact, all further communication should take place via your private email directly with my Gmail account.
+              </p>
+              <ContactForm />
             </div>
           </div>
 

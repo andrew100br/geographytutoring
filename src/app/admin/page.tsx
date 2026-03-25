@@ -335,29 +335,39 @@ export default function AdminPage() {
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       {slots.length === 0 ? <p style={{ textAlign:'center', color:'#94a3b8', fontSize:'0.9rem' }}>-</p> : slots.map((s, idx) => {
-                        const matchBooking = globalSchedule.find(b => new Date(b.booking_date).getTime() === s.raw.getTime());
+                        const matchingBookings = globalSchedule.filter(b => new Date(b.booking_date).getTime() === s.raw.getTime());
                         
-                        if (matchBooking) {
-                          const user = profiles.find(p => p.id === matchBooking.user_id) || { child_name: 'Unknown', parent_name: 'Unknown' };
-                          const isFutureConfirmed = new Date(matchBooking.booking_date) >= now && matchBooking.status === 'confirmed';
-                          let badgeBg, badgeColor, statusText;
-                          
-                          if (isFutureConfirmed) {
-                            badgeBg = '#e0e7ff'; badgeColor = '#4338ca'; statusText = 'Confirmed';
-                          } else if (matchBooking.status === 'cancelled') {
-                            badgeBg = '#fee2e2'; badgeColor = '#dc2626'; statusText = 'Cancelled';
-                          } else if (matchBooking.status === 'amended') {
-                            badgeBg = '#ffedd5'; badgeColor = '#ea580c'; statusText = 'Rescheduled';
-                          } else {
-                            badgeBg = '#dcfce7'; badgeColor = '#16a34a'; statusText = 'Completed';
-                          }
-
+                        if (matchingBookings.length > 0) {
                           return (
-                            <div key={idx} style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeColor}`, padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => openDetails(user)}>
-                              <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
-                              <span style={{ fontWeight: 600 }}>{user.child_name || user.parent_name}</span>
-                              <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.9 }}>{statusText}</span>
-                            </div>
+                            <React.Fragment key={idx}>
+                              {matchingBookings.map((matchBooking, bIdx) => {
+                                const user = profiles.find(p => p.id === matchBooking.user_id) || { child_name: 'Unknown', parent_name: 'Unknown' };
+                                const isFutureActive = new Date(matchBooking.booking_date) >= now && (matchBooking.status === 'confirmed' || matchBooking.status === 'rescheduled');
+                                let badgeBg, badgeColor, statusText;
+                                
+                                if (isFutureActive) {
+                                  if (matchBooking.status === 'rescheduled') {
+                                    badgeBg = '#ffedd5'; badgeColor = '#ea580c'; statusText = 'Rescheduled';
+                                  } else {
+                                    badgeBg = '#e0e7ff'; badgeColor = '#4338ca'; statusText = 'Confirmed';
+                                  }
+                                } else if (matchBooking.status === 'cancelled') {
+                                  badgeBg = '#fee2e2'; badgeColor = '#dc2626'; statusText = 'Cancelled';
+                                } else if (matchBooking.status === 'amended') {
+                                  badgeBg = '#ffedd5'; badgeColor = '#ea580c'; statusText = 'Rescheduled';
+                                } else {
+                                  badgeBg = '#dcfce7'; badgeColor = '#16a34a'; statusText = 'Completed';
+                                }
+
+                                return (
+                                  <div key={bIdx} style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeColor}`, padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'center', cursor: 'pointer', marginBottom: bIdx < matchingBookings.length - 1 ? '0.5rem' : 0 }} onClick={() => openDetails(user)}>
+                                    <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
+                                    <span style={{ fontWeight: 600 }}>{user.child_name || user.parent_name}</span>
+                                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.9 }}>{statusText}</span>
+                                  </div>
+                                );
+                              })}
+                            </React.Fragment>
                           );
                         } else {
                           // Unbooked specific slot
@@ -445,10 +455,14 @@ export default function AdminPage() {
                 {detailsLoading ? <li style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8' }}>Loading bookings...</li> :
                   userBookings.length === 0 ? <li style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8' }}>No bookings found.</li> :
                   userBookings.map((b, i) => {
-                    const isFutureConfirmed = b.status === 'confirmed' && new Date(b.booking_date) >= now;
+                    const isFutureConfirmed = (b.status === 'confirmed' || b.status === 'rescheduled') && new Date(b.booking_date) >= now;
                     let badge = '';
                     if (isFutureConfirmed) {
-                      badge = b.is_monthly ? `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>` : `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
+                      if (b.status === 'rescheduled') {
+                        badge = `<span style="background: #ffedd5; color: #ea580c; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
+                      } else {
+                        badge = b.is_monthly ? `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>` : `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
+                      }
                     } else if (b.status === 'cancelled') {
                       badge = `<span style="background: #fee2e2; color: #dc2626; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Cancelled</span>`;
                     } else if (b.status === 'amended') {
