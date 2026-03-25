@@ -393,14 +393,6 @@ export default function BookingPage() {
                 </ul>
               )}
             </div>
-
-            <div className="contact-section" style={{marginTop:'3rem', borderTop:'1px solid var(--border-color)', paddingTop:'2rem', maxWidth: '600px', margin: '3rem auto 0'}}>
-              <h4 style={{marginBottom:'0.5rem', fontSize:'1.1rem'}}><i className="ph ph-envelope-simple"></i> Message Teacher Andrew</h4>
-              <p style={{marginBottom:'1.5rem', fontSize:'0.85rem', color:'#64748b'}}>
-                This form is for initial contact only.
-              </p>
-              <ContactForm />
-            </div>
           </div>
 
           <div className="user-dashboard" style={{marginTop:'-1rem', marginBottom:'2rem'}}>
@@ -532,6 +524,14 @@ export default function BookingPage() {
               </div>
             </div>
           )}
+
+          <div className="contact-section" style={{marginTop:'3rem', borderTop:'1px solid var(--border-color)', paddingTop:'2rem', maxWidth: '600px', margin: '3rem auto 0'}}>
+            <h4 style={{marginBottom:'0.5rem', fontSize:'1.1rem'}}><i className="ph ph-envelope-simple"></i> Message Teacher Andrew</h4>
+            <p style={{marginBottom:'1.5rem', fontSize:'0.85rem', color:'#64748b'}}>
+              This form is for initial contact only. All remaining contact can be done via email to my private Gmail account.
+            </p>
+            <ContactForm />
+          </div>
 
           <div className="auth-header" style={{textAlign:'center', marginTop:'2rem'}}>
             <button onClick={handleLogout} className="btn btn-outline">Log Out</button>
