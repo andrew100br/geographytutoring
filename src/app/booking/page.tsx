@@ -452,7 +452,7 @@ export default function BookingPage() {
                     <div className="slots-container">
                       {slots.length === 0 ? <p className="empty-slots">-</p> : slots.map((s, idx) => {
                         const isoStr = s.raw.toISOString();
-                        const isBookedByUser = upcomingBookings.some(b => b.date.toISOString() === isoStr);
+                        const myBooking = upcomingBookings.find(b => b.date.toISOString() === isoStr);
                         const isBookedGlobally = allBookedSlots.includes(isoStr);
                         
                         let btnStyle: React.CSSProperties = {};
@@ -460,9 +460,14 @@ export default function BookingPage() {
                         let btnClass = 'slot-btn';
                         let isDisabled = false;
 
-                        if (isBookedByUser) {
-                          btnStyle = { backgroundColor: '#dcfce7', color: '#16a34a', cursor: 'not-allowed', border: '1px solid #bbf7d0' };
-                          btnText = 'Booked';
+                        if (myBooking) {
+                          if (myBooking.status === 'rescheduled') {
+                            btnStyle = { backgroundColor: '#ffedd5', color: '#ea580c', cursor: 'not-allowed', border: '1px solid #fdba74' };
+                            btnText = 'Rescheduled';
+                          } else {
+                            btnStyle = { backgroundColor: '#dcfce7', color: '#16a34a', cursor: 'not-allowed', border: '1px solid #bbf7d0' };
+                            btnText = 'Your Lesson';
+                          }
                           btnClass += ' disabled booked-mine';
                           isDisabled = true;
                         } else if (isBookedGlobally) {
