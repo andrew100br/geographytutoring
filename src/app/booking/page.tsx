@@ -62,6 +62,7 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [bookMonthly, setBookMonthly] = useState(false);
   const [bookTenLessons, setBookTenLessons] = useState(false);
+  const [currency, setCurrency] = useState('gbp');
 
   useEffect(() => {
     checkSession();
@@ -237,6 +238,7 @@ export default function BookingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quantity: qty, userId: session.user.id, userEmail: session.user.email,
+          currency: currency,
           successUrl: window.location.origin + '/booking?payment=success',
           cancelUrl: window.location.origin + '/booking?payment=cancel'
         })
@@ -403,7 +405,17 @@ export default function BookingPage() {
           </div>
 
           <div className="user-dashboard" style={{marginTop:'-1rem', marginBottom:'2rem'}}>
-            <h3 style={{marginBottom:'1rem'}}><i className="ph ph-shopping-bag"></i> Buy Lesson Credits</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}><i className="ph ph-shopping-bag"></i> Buy Lesson Credits</h3>
+              <select className="input-field" value={currency} onChange={e => setCurrency(e.target.value)} style={{ padding: '0.4rem', borderRadius: 4, border: '1px solid #cbd5e1', maxWidth: '200px', background: '#fff', fontSize: '0.9rem' }}>
+                <option value="gbp">GBP (£) - Brit. Pound</option>
+                <option value="usd">USD ($) - US Dollar</option>
+                <option value="eur">EUR (€) - Euro</option>
+                <option value="aud">AUD ($) - Aust. Dollar</option>
+                <option value="cad">CAD ($) - Can. Dollar</option>
+                <option value="thb">THB (฿) - Thai Baht</option>
+              </select>
+            </div>
             <div className="dashboard-stats" style={{marginBottom:0}}>
               <div className="stat-card" style={{display:'flex', flexDirection:'column', textAlign:'left'}}>
                 <h4 style={{fontSize:'1.1rem', marginBottom:'0.5rem'}}>Pay As You Go</h4>
@@ -417,7 +429,7 @@ export default function BookingPage() {
                     <span style={{padding:'0 1rem', fontWeight:600}}>{purchaseQty}</span>
                     <button className="btn btn-icon" onClick={() => setPurchaseQty(purchaseQty+1)} style={{border:'none', borderRadius:0, background:'#f8fafc', padding:'0.5rem 0.8rem', color:'#475569'}}><i className="ph ph-plus"></i></button>
                   </div>
-                  <button className="btn btn-outline" onClick={() => handleTopUp(purchaseQty)} style={{flex:1}}>Buy £{purchaseQty * PRICE_PER_LESSON}</button>
+                  <button className="btn btn-outline" onClick={() => handleTopUp(purchaseQty)} style={{flex:1}}>Buy via Stripe in {currency.toUpperCase()}</button>
                 </div>
               </div>
 

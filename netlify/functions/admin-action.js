@@ -148,7 +148,7 @@ exports.handler = async (event, context) => {
                     user_id: oldBooking.user_id,
                     booking_date: newIsoString,
                     is_monthly: oldBooking.is_monthly,
-                    status: 'rescheduled'
+                    status: 'confirmed'
                 }]);
             if (insertError) throw insertError;
 
