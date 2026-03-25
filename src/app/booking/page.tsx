@@ -241,10 +241,17 @@ export default function BookingPage() {
           cancelUrl: window.location.origin + '/booking?payment=cancel'
         })
       });
-      const data = await response.json();
-      if (data.url) window.location.href = data.url;
-      else throw new Error(data.error);
-    } catch (e: any) { alert(e.message); }
+      const rawText = await response.text();
+      try {
+        const data = JSON.parse(rawText);
+        if (data.url) window.location.href = data.url;
+        else throw new Error(data.error || 'Unknown Stripe Error');
+      } catch (err: any) {
+        throw new Error(`Payment API failed to respond properly. Netlify Trace: ` + rawText);
+      }
+    } catch (e: any) { 
+        alert('Checkout Error: ' + e.message); 
+    }
   };
 
   const confirmBooking = async () => {
@@ -443,7 +450,8 @@ export default function BookingPage() {
                 const slots = generateThaiTimeSlots(day);
                 const isToday = new Date().toDateString() === day.toDateString();
                 
-                const dayBookings = upcomingBookings.filter(b => b.date.toDateString() === day.toDateString());
+                const allMyBookings = [...upcomingBookings, ...pastBookings];
+                const dayBookings = allMyBookings.filter(b => b.date.toDateString() === day.toDateString());
                 dayBookings.forEach(b => {
                    const isoStr = b.date.toISOString();
                    if (!slots.some(s => s.raw.toISOString() === isoStr)) {
@@ -463,34 +471,42 @@ export default function BookingPage() {
                       {slots.length === 0 ? <p className="empty-slots">-</p> : slots.map((s, idx) => {
                         const isoStr = s.raw.toISOString();
                         const myBooking = upcomingBookings.find(b => b.date.toISOString() === isoStr);
+                        const myHistoryBookings = pastBookings.filter(b => b.date.toISOString() === isoStr && (b.status === 'cancelled' || b.status === 'amended'));
                         const isBookedGlobally = allBookedSlots.includes(isoStr);
                         
                         let btnStyle: React.CSSProperties = {};
-                        let btnText = s.display;
+                        let btnContent: React.ReactNode = s.display;
                         let btnClass = 'slot-btn';
                         let isDisabled = false;
 
                         if (myBooking) {
                           if (myBooking.status === 'rescheduled') {
-                            btnStyle = { backgroundColor: '#ffedd5', color: '#ea580c', cursor: 'not-allowed', border: '1px solid #fdba74' };
-                            btnText = 'Rescheduled';
+                            btnStyle = { backgroundColor: '#f59e0b', color: '#ffffff', cursor: 'not-allowed', border: '1px solid #d97706' };
+                            btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Rescheduled</div><div style={{fontSize:'0.85em', opacity:0.9}}>{s.display}</div></>;
                           } else {
-                            btnStyle = { backgroundColor: '#dcfce7', color: '#16a34a', cursor: 'not-allowed', border: '1px solid #bbf7d0' };
-                            btnText = 'Your Lesson';
+                            btnStyle = { backgroundColor: '#22c55e', color: '#ffffff', cursor: 'not-allowed', border: '1px solid #16a34a' };
+                            btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Booked</div><div style={{fontSize:'0.85em', opacity:0.9}}>{s.display}</div></>;
                           }
                           btnClass += ' disabled booked-mine';
                           isDisabled = true;
                         } else if (isBookedGlobally) {
                           btnStyle = { backgroundColor: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed', border: '1px solid #cbd5e1' };
-                          btnText = 'Unavailable';
+                          btnContent = 'Unavailable';
                           btnClass += ' disabled';
                           isDisabled = true;
                         }
 
                         return (
-                          <button key={idx} className={btnClass} disabled={isDisabled} style={btnStyle} onClick={() => setSelectedDate(s.raw)}>
-                            {btnText}
-                          </button>
+                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            {myHistoryBookings.map((hb, hbIdx) => (
+                              <div key={`h-${hbIdx}`} style={{ fontSize: '0.65rem', padding: '0.2rem', background: hb.status === 'amended' ? '#ffedd5' : '#fee2e2', color: hb.status === 'amended' ? '#ea580c' : '#dc2626', borderRadius: 4, textAlign: 'center', textTransform: 'uppercase', fontWeight: 600 }}>
+                                {hb.status}
+                              </div>
+                            ))}
+                            <button className={btnClass} disabled={isDisabled} style={btnStyle} onClick={() => setSelectedDate(s.raw)}>
+                              {btnContent}
+                            </button>
+                          </div>
                         );
                       })}
                     </div>

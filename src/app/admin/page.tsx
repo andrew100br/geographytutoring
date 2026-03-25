@@ -414,6 +414,7 @@ export default function AdminPage() {
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Email</th>
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Country</th>
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Credits Balance</th>
+                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569', textAlign: 'center' }}>Lessons (Active/Past)</th>
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Actions</th>
               </tr>
             </thead>
@@ -428,6 +429,20 @@ export default function AdminPage() {
                     <td style={{ padding: '1rem' }}>{p.country || 'N/A'}</td>
                     <td style={{ padding: '1rem' }}>
                       <span style={{ padding: '0.3rem 0.6rem', background: p.credits > 0 ? '#dcfce7' : '#fee2e2', color: p.credits > 0 ? '#16a34a' : '#991b1b', borderRadius: 20, fontSize: '0.85rem', fontWeight: 600 }}>{p.credits || 0} Lessons</span>
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      {(() => {
+                        const userBookings = globalSchedule.filter(b => b.user_id === p.id);
+                        let active = 0; let past = 0;
+                        userBookings.forEach(b => {
+                          const bDate = new Date(b.booking_date);
+                          if ((b.status === 'confirmed' || b.status === 'rescheduled') && bDate >= now) active++;
+                          else past++;
+                        });
+                        return (
+                          <><span style={{ color: '#16a34a', fontWeight:'bold' }}>{active}</span> <span style={{ color: '#cbd5e1', margin: '0 0.2rem' }}>/</span> <span style={{ color: '#64748b' }}>{past}</span></>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
                       <button className="btn btn-outline" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }} onClick={() => openDetails(p)}><i className="ph ph-list-dashes"></i> Details</button>
