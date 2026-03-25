@@ -17,18 +17,29 @@ export default function ContactForm() {
       service: formData.get('service'),
       message: formData.get('message'),
       _subject: `New Inquiry from ${formData.get('name')}`,
+      _template: 'table',
       _captcha: "false"
     };
 
     try {
       const res = await fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(data),
       });
 
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || 'Server responded with an error');
+      }
+
       const resData = await res.json();
-      if (!res.ok || resData.success === 'false') throw new Error(resData.message || 'Failed to send message.');
+      if (resData.success === 'false' || resData.success === false) {
+          throw new Error(resData.message || 'FormSubmit returned success: false');
+      }
 
       e.currentTarget.reset();
       setStatus({ type: 'success', message: 'Message sent successfully! I will reply soon.' });

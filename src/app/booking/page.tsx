@@ -63,8 +63,6 @@ export default function BookingPage() {
   const [bookMonthly, setBookMonthly] = useState(false);
   const [bookTenLessons, setBookTenLessons] = useState(false);
   const [currency, setCurrency] = useState('gbp');
-  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [checkoutQty, setCheckoutQty] = useState(1);
 
   useEffect(() => {
     checkSession();
@@ -232,12 +230,7 @@ export default function BookingPage() {
     setUserProfile(null);
   };
 
-  const handleTopUp = (qty: number) => {
-    setCheckoutQty(qty);
-    setShowCheckoutModal(true);
-  };
-
-  const processStripeCheckout = async () => {
+  const handleTopUp = async (qty: number) => {
     if (!session) return;
     setIsProcessing(true);
     try {
@@ -245,8 +238,7 @@ export default function BookingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          quantity: checkoutQty, userId: session.user.id, userEmail: session.user.email,
-          currency: currency,
+          quantity: qty, userId: session.user.id, userEmail: session.user.email,
           successUrl: window.location.origin + '/booking?payment=success',
           cancelUrl: window.location.origin + '/booking?payment=cancel'
         })
@@ -306,6 +298,7 @@ export default function BookingPage() {
                   name: "System Notification",
                   email: session.user.email,
                   _subject: `New Booking Alert: ${userProfile.child_name || 'Unknown'} (${userProfile.parent_name || 'Unknown'})`,
+                  _template: 'table',
                   _captcha: "false",
                   message: `A new lesson has been booked.\n\nStudent: ${userProfile.child_name || 'Unknown'}\nParent: ${userProfile.parent_name || 'Unknown'}\nDates:\n${datesStr}\n\nCheck the admin portal for full details.`
               })
@@ -584,55 +577,6 @@ export default function BookingPage() {
           </div>
         </div>
       </div>
-      {/* Checkout Modal */}
-      {showCheckoutModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: 450 }}>
-            <div className="modal-header">
-              <h3><i className="ph ph-shopping-cart"></i> Secure Checkout</h3>
-              <button onClick={() => setShowCheckoutModal(false)} className="close-btn"><i className="ph ph-x"></i></button>
-            </div>
-            <div className="modal-body">
-              <p style={{marginBottom:'1.5rem', color:'#64748b'}}>You are purchasing <strong>{checkoutQty} Lesson Credit{checkoutQty > 1 ? 's' : ''}</strong>. Please select your currency to continue to the secure Stripe payment gateway.</p>
-              
-              <div className="form-group">
-                <label>Select Payment Currency</label>
-                <select 
-                  className="input-field" 
-                  value={currency} 
-                  onChange={e => setCurrency(e.target.value)}
-                  style={{ width: '100%', padding: '0.8rem', fontSize:'1rem' }}
-                >
-                  <option value="gbp">British Pound (£)</option>
-                  <option value="usd">US Dollar ($)</option>
-                  <option value="eur">Euro (€)</option>
-                  <option value="aud">Australian Dollar ($)</option>
-                  <option value="cad">Canadian Dollar ($)</option>
-                  <option value="thb">Thai Baht (฿)</option>
-                </select>
-              </div>
-
-              <div style={{ background: '#f1f5f9', padding: '1rem', borderRadius: 8, marginTop: '1.5rem' }}>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-                  <i className="ph ph-info" style={{ marginRight: 4 }}></i>
-                  Exchange rates are calculated automatically. You will be redirected to Stripe to complete the transaction safely.
-                </p>
-              </div>
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={() => setShowCheckoutModal(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
-              <button 
-                onClick={processStripeCheckout} 
-                className="btn btn-primary" 
-                style={{ flex: 1 }}
-                disabled={isProcessing}
-              >
-                {isProcessing ? 'Processing...' : `Pay in ${currency.toUpperCase()}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

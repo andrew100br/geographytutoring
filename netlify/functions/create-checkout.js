@@ -10,14 +10,11 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        const { quantity, userId, userEmail, successUrl, cancelUrl, currency = 'gbp' } = JSON.parse(event.body);
+        const { quantity, userId, userEmail, successUrl, cancelUrl } = JSON.parse(event.body);
 
-        // Define exchange rates relative to GBP base price
-        const rates = { gbp: 1, usd: 1.30, eur: 1.20, thb: 44.0, aud: 2.00, cad: 1.80 };
-        const rate = rates[currency.toLowerCase()] || 1;
         const basePriceGBP = quantity === 10 ? 225 : 25;
-        // Stripe operates in atomic denomination (cents, pence)
-        const unitAmount = Math.round(basePriceGBP * rate * 100);
+        // Stripe operates in atomic denomination (pence for GBP)
+        const unitAmount = Math.round(basePriceGBP * 100);
 
         // Create a Stripe Checkout Session
         const session = await stripe.checkout.sessions.create({
@@ -25,7 +22,7 @@ exports.handler = async (event, context) => {
             line_items: [
                 {
                     price_data: {
-                        currency: currency.toLowerCase(),
+                        currency: 'gbp',
                         product_data: {
                             name: quantity === 10 ? '10-Lesson Geography Bundle' : 'Geography Lesson Credit',
                             description: quantity === 10 ? 'A bundle of 10 lesson credits at a discounted rate.' : 'A single lesson credit.',
@@ -39,7 +36,6 @@ exports.handler = async (event, context) => {
             success_url: successUrl + '&session_id={CHECKOUT_SESSION_ID}',
             cancel_url: cancelUrl,
             customer_email: userEmail,
-            // Pass the user ID and exact credit amount as metadata so the webhook knows who to give credits to
             metadata: {
                 userId: userId,
                 creditsToAdd: quantity
