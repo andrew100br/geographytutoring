@@ -16,6 +16,8 @@ export default function ContactForm() {
       email: formData.get('email'),
       service: formData.get('service'),
       message: formData.get('message'),
+      _subject: `New Inquiry from ${formData.get('name')}`,
+      _captcha: "false"
     };
 
     try {
