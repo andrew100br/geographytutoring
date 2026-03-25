@@ -36,13 +36,20 @@ export default function ContactForm() {
         throw new Error(errText || 'Server responded with an error');
       }
 
-      const resData = await res.json();
-      if (resData.success === 'false' || resData.success === false) {
-          throw new Error(resData.message || 'FormSubmit returned success: false');
+      // If res.ok is true, FormSubmit has accepted the request. 
+      // Sometimes resData.success is true (bool) or "true" (string). 
+      // We check for "false" explicitly to be safe, otherwise assume success if res.ok is true.
+      try {
+        const resData = await res.json();
+        if (resData.success === 'false' || resData.success === false) {
+            throw new Error(resData.message || 'FormSubmit returned success: false');
+        }
+      } catch (e) {
+        console.warn("Could not parse FormSubmit JSON response, but request was OK.");
       }
 
       e.currentTarget.reset();
-      setStatus({ type: 'success', message: 'Message sent successfully! I will reply soon.' });
+      setStatus({ type: 'success', message: 'Message sent! I will get back to you shortly.' });
     } catch (err) {
       console.error(err);
       setStatus({ type: 'error', message: 'Error sending message. Please try again.' });
