@@ -33,6 +33,11 @@ exports.handler = async (event, context) => {
                 },
             ],
             mode: 'payment',
+            payment_method_options: {
+                wechat_pay: {
+                    client: 'web',
+                },
+            },
             success_url: successUrl + '&session_id={CHECKOUT_SESSION_ID}',
             cancel_url: cancelUrl,
             customer_email: userEmail,
