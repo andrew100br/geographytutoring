@@ -66,9 +66,25 @@ export default function ContactForm() {
         {isSubmitting ? 'Sending...' : 'Send Inquiry'}
       </button>
       {status.type && (
-        <p className="form-status" style={{ color: status.type === 'success' ? '#16a34a' : '#dc2626' }}>
-          {status.type === 'success' && <i className="ph ph-check-circle"></i>} {status.message}
-        </p>
+        <div 
+          className="form-status" 
+          style={{ 
+            marginTop: '1.5rem',
+            padding: '1rem',
+            borderRadius: '8px',
+            textAlign: 'center',
+            fontWeight: 'bold',
+            fontSize: '1.1rem',
+            backgroundColor: status.type === 'success' ? '#ecfdf5' : '#fef2f2',
+            color: status.type === 'success' ? '#059669' : '#dc2626',
+            border: `1px solid ${status.type === 'success' ? '#10b981' : '#f87171'}`,
+            display: 'block',
+            visibility: 'visible',
+            opacity: 1
+          }}
+        >
+          {status.message}
+        </div>
       )}
     </form>
   );
