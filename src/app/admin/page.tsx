@@ -3,6 +3,30 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+function generateThaiTimeSlots(baseDateStr: Date) {
+  const schedule: Record<number, string[]> = {
+    1: ['17:00'], 2: ['17:00'], 3: ['17:00'], 
+    4: ['17:00', '18:00'], 5: ['17:00'], 6: [], 
+    0: ['16:00', '17:00', '18:00']
+  };
+  const targetDate = new Date(baseDateStr);
+  const dayOfWeek = targetDate.getDay();
+  const slots: { raw: Date, display: string }[] = [];
+
+  if (schedule[dayOfWeek]?.length > 0) {
+    schedule[dayOfWeek].forEach(timeStr => {
+      const yyyy = targetDate.getFullYear();
+      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(targetDate.getDate()).padStart(2, '0');
+      const isoStr = `${yyyy}-${mm}-${dd}T${timeStr}:00+07:00`;
+      const localDateObj = new Date(isoStr);
+      const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+      slots.push({ raw: localDateObj, display: timeFormatter.format(localDateObj) });
+    });
+  }
+  return slots;
+}
+
 const MOCK_ADMIN_USER = 'admin';
 const LESSON_PRICE = 25;
 
@@ -17,6 +41,14 @@ export default function AdminPage() {
   const [revenue, setRevenue] = useState(0);
   const [globalSchedule, setGlobalSchedule] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
   const totalStudents = profiles.length;
   const totalCredits = profiles.reduce((sum, p) => sum + (p.credits || 0), 0);
 
@@ -280,35 +312,69 @@ export default function AdminPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#ffedd5', borderRadius: '50%' }}></span> Rescheduled</span>
             </div>
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 400, overflowY: 'auto' }}>
-            {loading ? <li style={{ color: '#64748b' }}>Loading schedule...</li> :
-              globalSchedule.length === 0 ? <li style={{ color: '#64748b' }}>No lessons scheduled.</li> :
-              globalSchedule.map((b, i) => {
-                const user = profiles.find(p => p.id === b.user_id) || { child_name: 'Unknown', parent_name: 'Unknown' };
-                const isFutureConfirmed = new Date(b.booking_date) >= now && b.status === 'confirmed';
-                let badge = '';
-                if (isFutureConfirmed) {
-                  badge = b.is_monthly ? `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>` : `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
-                } else if (b.status === 'cancelled') {
-                  badge = `<span style="background: #fee2e2; color: #dc2626; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Cancelled</span>`;
-                } else if (b.status === 'amended') {
-                  badge = `<span style="background: #ffedd5; color: #ea580c; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
-                } else {
-                  badge = `<span style="background: #dcfce7; color: #16a34a; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Completed</span>`;
-                }
+          <div className="calendar-wrapper" style={{ marginTop: '2rem' }}>
+            <div className="calendar-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <button className="btn btn-secondary btn-icon" onClick={() => { const d=new Date(currentWeekStart); d.setDate(d.getDate()-7); setCurrentWeekStart(d); }} style={{ padding: '0.5rem', borderRadius: '50%', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}><i className="ph ph-caret-left"></i></button>
+              <h3 style={{ margin: 0 }}>Week of {new Intl.DateTimeFormat('en-US', {month:'short',year:'numeric'}).format(currentWeekStart)}</h3>
+              <button className="btn btn-secondary btn-icon" onClick={() => { const d=new Date(currentWeekStart); d.setDate(d.getDate()+7); setCurrentWeekStart(d); }} style={{ padding: '0.5rem', borderRadius: '50%', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}><i className="ph ph-caret-right"></i></button>
+            </div>
 
+            <div className="days-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem', minWidth: 800, overflowX: 'auto' }}>
+              {Array.from({length:7}).map((_, i) => {
+                const day = new Date(currentWeekStart);
+                day.setDate(day.getDate() + i);
+                const slots = generateThaiTimeSlots(day);
+                const isToday = new Date().toDateString() === day.toDateString();
+                
                 return (
-                  <li key={i} style={{ padding: '0.75rem 0', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', opacity: isFutureConfirmed ? 1 : 0.7 }}>
-                    <div>
-                      <strong style={{ color: '#1e293b' }}>{new Intl.DateTimeFormat('en-US', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}).format(new Date(b.booking_date))}</strong><br/>
-                      <span style={{ fontSize: '0.85rem', color: '#475569' }}>Student: {user.child_name} (Parent: {user.parent_name})</span>
+                  <div key={i} className="day-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ textAlign: 'center', padding: '0.5rem', background: isToday ? 'var(--primary-color)' : 'var(--bg-light)', color: isToday ? '#fff' : 'inherit', borderRadius: 4 }}>
+                      <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', display: 'block' }}>{new Intl.DateTimeFormat('en-US', {weekday:'short'}).format(day)}</span>
+                      <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{day.getDate()}</span>
                     </div>
-                    <div><span dangerouslySetInnerHTML={{__html: badge}}></span></div>
-                  </li>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {slots.length === 0 ? <p style={{ textAlign:'center', color:'#94a3b8', fontSize:'0.9rem' }}>-</p> : slots.map((s, idx) => {
+                        const matchBooking = globalSchedule.find(b => new Date(b.booking_date).getTime() === s.raw.getTime());
+                        
+                        if (matchBooking) {
+                          const user = profiles.find(p => p.id === matchBooking.user_id) || { child_name: 'Unknown', parent_name: 'Unknown' };
+                          const isFutureConfirmed = new Date(matchBooking.booking_date) >= now && matchBooking.status === 'confirmed';
+                          let badgeBg, badgeColor, statusText;
+                          
+                          if (isFutureConfirmed) {
+                            badgeBg = '#e0e7ff'; badgeColor = '#4338ca'; statusText = 'Confirmed';
+                          } else if (matchBooking.status === 'cancelled') {
+                            badgeBg = '#fee2e2'; badgeColor = '#dc2626'; statusText = 'Cancelled';
+                          } else if (matchBooking.status === 'amended') {
+                            badgeBg = '#ffedd5'; badgeColor = '#ea580c'; statusText = 'Rescheduled';
+                          } else {
+                            badgeBg = '#dcfce7'; badgeColor = '#16a34a'; statusText = 'Completed';
+                          }
+
+                          return (
+                            <div key={idx} style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeColor}`, padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => openDetails(user)}>
+                              <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
+                              <span style={{ fontWeight: 600 }}>{user.child_name || user.parent_name}</span>
+                              <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.9 }}>{statusText}</span>
+                            </div>
+                          );
+                        } else {
+                          // Unbooked specific slot
+                          return (
+                            <div key={idx} style={{ background: '#f8fafc', color: '#64748b', border: '1px dashed #cbd5e1', padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', textAlign: 'center' }}>
+                              <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
+                              <div style={{fontSize:'0.7rem', marginTop:'0.2rem'}}>Available</div>
+                            </div>
+                          );
+                        }
+                      })}
+                    </div>
+                  </div>
                 );
-              })
-            }
-          </ul>
+              })}
+            </div>
+          </div>
         </div>
 
         {/* CLIENTS DB */}
