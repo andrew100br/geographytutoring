@@ -34,6 +34,30 @@ export default function ContactForm() {
     }
   };
 
+  if (status.type === 'success') {
+    return (
+      <div style={{
+        padding: '2rem',
+        borderRadius: '12px',
+        backgroundColor: '#f0fdf4',
+        border: '2px solid #22c55e',
+        textAlign: 'center',
+        margin: '1rem 0'
+      }}>
+        <i className="ph ph-check-circle" style={{ fontSize: '3rem', color: '#22c55e', marginBottom: '1rem', display: 'block' }}></i>
+        <h3 style={{ color: '#166534', margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>Message sent!</h3>
+        <p style={{ color: '#166534', margin: 0 }}>I will get back to you shortly.</p>
+        <button 
+          onClick={() => setStatus({ type: null, message: '' })}
+          className="btn btn-secondary"
+          style={{ marginTop: '1.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+        >
+          Send another message
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form id="booking-form" className="booking-form" onSubmit={handleSubmit}>
       {/* FormSubmit Configuration */}
@@ -65,7 +89,7 @@ export default function ContactForm() {
       <button type="submit" className="btn btn-primary btn-full" disabled={isSubmitting}>
         {isSubmitting ? 'Sending...' : 'Send Inquiry'}
       </button>
-      {status.type && (
+      {status.type === 'error' && (
         <div 
           className="form-status" 
           style={{ 
@@ -74,13 +98,9 @@ export default function ContactForm() {
             borderRadius: '8px',
             textAlign: 'center',
             fontWeight: 'bold',
-            fontSize: '1.1rem',
-            backgroundColor: status.type === 'success' ? '#ecfdf5' : '#fef2f2',
-            color: status.type === 'success' ? '#059669' : '#dc2626',
-            border: `1px solid ${status.type === 'success' ? '#10b981' : '#f87171'}`,
-            display: 'block',
-            visibility: 'visible',
-            opacity: 1
+            backgroundColor: '#fef2f2',
+            color: '#dc2626',
+            border: '1px solid #f87171'
           }}
         >
           {status.message}
