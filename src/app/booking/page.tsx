@@ -443,6 +443,16 @@ export default function BookingPage() {
                 const slots = generateThaiTimeSlots(day);
                 const isToday = new Date().toDateString() === day.toDateString();
                 
+                const dayBookings = upcomingBookings.filter(b => b.date.toDateString() === day.toDateString());
+                dayBookings.forEach(b => {
+                   const isoStr = b.date.toISOString();
+                   if (!slots.some(s => s.raw.toISOString() === isoStr)) {
+                       const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+                       slots.push({ raw: b.date, display: timeFormatter.format(b.date) });
+                   }
+                });
+                slots.sort((a,b) => a.raw.getTime() - b.raw.getTime());
+                
                 return (
                   <div key={i} className="day-column">
                     <div className={`day-header ${isToday ? 'today' : ''}`}>

@@ -304,12 +304,12 @@ export default function AdminPage() {
         {/* GLOBAL UPCOMING SCHEDULE */}
         <div style={{ background: '#fff', padding: '1.5rem', borderRadius: 8, border: '1px solid var(--border-color)', marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Global Schedule</h2>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Teaching Schedule</h2>
             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', flexWrap: 'wrap' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#e0e7ff', borderRadius: '50%' }}></span> Confirmed</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#dcfce7', borderRadius: '50%' }}></span> Completed</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#fee2e2', borderRadius: '50%' }}></span> Cancelled</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#ffedd5', borderRadius: '50%' }}></span> Rescheduled</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#3b82f6', borderRadius: '50%' }}></span> Confirmed</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#22c55e', borderRadius: '50%' }}></span> Completed</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#ef4444', borderRadius: '50%' }}></span> Cancelled</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#f59e0b', borderRadius: '50%' }}></span> Rescheduled</span>
             </div>
           </div>
           <div className="calendar-wrapper" style={{ marginTop: '2rem' }}>
@@ -325,6 +325,18 @@ export default function AdminPage() {
                 day.setDate(day.getDate() + i);
                 const slots = generateThaiTimeSlots(day);
                 const isToday = new Date().toDateString() === day.toDateString();
+                
+                // Dynamically inject custom out-of-schedule slots present in the database for this day
+                const dayBookings = globalSchedule.filter(b => new Date(b.booking_date).toDateString() === day.toDateString());
+                dayBookings.forEach(b => {
+                   const localDateObj = new Date(b.booking_date);
+                   const isoStr = localDateObj.toISOString();
+                   if (!slots.some(s => s.raw.toISOString() === isoStr)) {
+                       const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+                       slots.push({ raw: localDateObj, display: timeFormatter.format(localDateObj) });
+                   }
+                });
+                slots.sort((a,b) => a.raw.getTime() - b.raw.getTime());
                 
                 return (
                   <div key={i} className="day-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -347,23 +359,23 @@ export default function AdminPage() {
                                 
                                 if (isFutureActive) {
                                   if (matchBooking.status === 'rescheduled') {
-                                    badgeBg = '#ffedd5'; badgeColor = '#ea580c'; statusText = 'Rescheduled';
+                                    badgeBg = '#f59e0b'; badgeColor = '#ffffff'; statusText = 'Rescheduled';
                                   } else {
-                                    badgeBg = '#e0e7ff'; badgeColor = '#4338ca'; statusText = 'Confirmed';
+                                    badgeBg = '#3b82f6'; badgeColor = '#ffffff'; statusText = 'Confirmed';
                                   }
                                 } else if (matchBooking.status === 'cancelled') {
-                                  badgeBg = '#fee2e2'; badgeColor = '#dc2626'; statusText = 'Cancelled';
+                                  badgeBg = '#ef4444'; badgeColor = '#ffffff'; statusText = 'Cancelled';
                                 } else if (matchBooking.status === 'amended') {
-                                  badgeBg = '#ffedd5'; badgeColor = '#ea580c'; statusText = 'Rescheduled';
+                                  badgeBg = '#f59e0b'; badgeColor = '#ffffff'; statusText = 'Rescheduled';
                                 } else {
-                                  badgeBg = '#dcfce7'; badgeColor = '#16a34a'; statusText = 'Completed';
+                                  badgeBg = '#22c55e'; badgeColor = '#ffffff'; statusText = 'Completed';
                                 }
 
                                 return (
-                                  <div key={bIdx} style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeColor}`, padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'center', cursor: 'pointer', marginBottom: bIdx < matchingBookings.length - 1 ? '0.5rem' : 0 }} onClick={() => openDetails(user)}>
+                                  <div key={bIdx} style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeBg}`, padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'center', cursor: 'pointer', marginBottom: bIdx < matchingBookings.length - 1 ? '0.5rem' : 0 }} onClick={() => openDetails(user)}>
                                     <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
                                     <span style={{ fontWeight: 600 }}>{user.child_name || user.parent_name}</span>
-                                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.9 }}>{statusText}</span>
+                                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 1 }}>{statusText}</span>
                                   </div>
                                 );
                               })}
@@ -459,16 +471,16 @@ export default function AdminPage() {
                     let badge = '';
                     if (isFutureConfirmed) {
                       if (b.status === 'rescheduled') {
-                        badge = `<span style="background: #ffedd5; color: #ea580c; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
+                        badge = `<span style="background: #f59e0b; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
                       } else {
-                        badge = b.is_monthly ? `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>` : `<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
+                        badge = b.is_monthly ? `<span style="background: #3b82f6; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>` : `<span style="background: #3b82f6; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
                       }
                     } else if (b.status === 'cancelled') {
-                      badge = `<span style="background: #fee2e2; color: #dc2626; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Cancelled</span>`;
+                      badge = `<span style="background: #ef4444; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Cancelled</span>`;
                     } else if (b.status === 'amended') {
-                      badge = `<span style="background: #ffedd5; color: #ea580c; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
+                      badge = `<span style="background: #f59e0b; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
                     } else {
-                      badge = `<span style="background: #dcfce7; color: #16a34a; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Completed</span>`;
+                      badge = `<span style="background: #22c55e; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Completed</span>`;
                     }
 
                     return (
