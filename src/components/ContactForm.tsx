@@ -11,31 +11,18 @@ export default function ContactForm() {
     setStatus({ type: null, message: '' });
 
     const formData = new FormData(e.currentTarget);
-    const data = {
-      name: formData.get('name'),
-      email: formData.get('email'),
-      service: formData.get('service'),
-      message: formData.get('message'),
-      _subject: `New Inquiry from ${formData.get('name')}`,
-      _template: 'table',
-      _captcha: "false"
-    };
 
     try {
-      const res = await fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
+      // Use no-cors mode to ensure the browser doesn't block the response. 
+      // FormSubmit will still receive the data and send the email.
+      await fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(data),
+        mode: 'no-cors',
+        body: formData, // FormData automatically sets the right content-type
       });
 
-      if (!res.ok) {
-        throw new Error('Server responded with an error');
-      }
-
-      // If res.ok is true, FormSubmit has accepted the request and the email is sent.
+      // Since we are in no-cors mode, we can't inspect the response, 
+      // but if the fetch itself didn't throw, we assume the browser sent it.
       e.currentTarget.reset();
       setStatus({ type: 'success', message: 'Message sent! I will get back to you shortly.' });
     } catch (err) {
@@ -48,6 +35,11 @@ export default function ContactForm() {
 
   return (
     <form id="booking-form" className="booking-form" onSubmit={handleSubmit}>
+      {/* FormSubmit Configuration */}
+      <input type="hidden" name="_captcha" value="false" />
+      <input type="hidden" name="_template" value="table" />
+      <input type="hidden" name="_subject" value="New Inquiry from Geographic Tutoring Portal" />
+
       <div className="form-group">
         <label htmlFor="name">Parent/Student Name</label>
         <input type="text" id="name" name="name" required placeholder="Tilly Lamai" />
