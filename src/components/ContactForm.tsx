@@ -40,10 +40,6 @@ export default function ContactForm() {
 
   return (
     <form id="booking-form" className="booking-form" onSubmit={handleSubmit}>
-      <h3>Send a Message</h3>
-      <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', color: 'var(--text-light)' }}>
-        Fill out the form below and it will be sent directly to my email. I will reply to you as soon as possible.
-      </p>
       <div className="form-group">
         <label htmlFor="name">Parent/Student Name</label>
         <input type="text" id="name" name="name" required placeholder="Tilly Lamai" />

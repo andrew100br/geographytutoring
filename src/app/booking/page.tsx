@@ -394,10 +394,10 @@ export default function BookingPage() {
               )}
             </div>
 
-            <div className="contact-section" style={{marginTop:'2rem', borderTop:'1px solid var(--border-color)', paddingTop:'1.5rem'}}>
-              <h3 style={{marginBottom:'1rem'}}><i className="ph ph-envelope-simple"></i> Message Andrew</h3>
-              <p style={{marginBottom:'1.5rem', fontSize:'0.9rem', color:'#64748b', background:'#f8fafc', padding:'1rem', borderRadius:8}}>
-                <strong>Note:</strong> This form is for initial contact only. After first contact, all further communication should take place via your private email directly with my Gmail account.
+            <div className="contact-section" style={{marginTop:'3rem', borderTop:'1px solid var(--border-color)', paddingTop:'2rem', maxWidth: '600px', margin: '3rem auto 0'}}>
+              <h4 style={{marginBottom:'0.5rem', fontSize:'1.1rem'}}><i className="ph ph-envelope-simple"></i> Message Teacher Andrew</h4>
+              <p style={{marginBottom:'1.5rem', fontSize:'0.85rem', color:'#64748b'}}>
+                This form is for initial contact only.
               </p>
               <ContactForm />
             </div>
