@@ -1032,8 +1032,11 @@ footer {
 }
 
 .day-header.today {
-    background: var(--primary-color);
-    color: white;
+    background: var(--bg-light);
+    color: var(--text-dark);
+    border: 2px solid #000000;
+    border-radius: var(--border-radius-sm);
+    font-weight: 700;
 }
 
 .day-name {

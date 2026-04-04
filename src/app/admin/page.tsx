@@ -66,7 +66,7 @@ export default function AdminPage() {
   const [addError, setAddError] = useState('');
 
   // Edit Client Modal State
-  const [editForm, setEditForm] = useState({ userId: '', parentName: '', childName: '', country: '' });
+  const [editForm, setEditForm] = useState({ userId: '', parentName: '', childName: '', country: '', credits: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -187,11 +187,14 @@ export default function AdminPage() {
           payload: { bookingId: rescheduleData.bookingId, newIsoString, refund: rescheduleData.refund, userId: selectedUser.id }
         })
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to reschedule booking.');
+      }
       alert('Booking successfully amended!');
       setActiveModal(null);
       loadDashboardData(adminPass);
-    } catch { alert('Failed to reschedule booking.'); }
+    } catch (err: any) { alert(err.message || 'Failed to reschedule booking.'); }
     setIsRescheduling(false);
   };
 
@@ -266,7 +269,7 @@ export default function AdminPage() {
   }
 
   const now = new Date();
-  const futureBookings = userBookings.filter(b => b.status === 'confirmed' && new Date(b.booking_date) >= now);
+  const futureBookings = userBookings.filter(b => (b.status === 'confirmed' || b.status === 'rescheduled') && new Date(b.booking_date) >= now);
   const hasMonthly = futureBookings.some(b => b.is_monthly);
   const membershipStatus = hasMonthly ? <span style={{ color: '#16a34a' }}><i className="ph ph-star"></i> Monthly Subscriber</span> : (futureBookings.length > 0 || (selectedUser?.credits || 0) > 0) ? <span>Pay As You Go</span> : <span style={{ color: '#ea580c' }}>Trial / Lead</span>;
 
@@ -309,7 +312,7 @@ export default function AdminPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#3b82f6', borderRadius: '50%' }}></span> Confirmed</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#22c55e', borderRadius: '50%' }}></span> Completed</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#ef4444', borderRadius: '50%' }}></span> Cancelled</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#f59e0b', borderRadius: '50%' }}></span> Rescheduled</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#f59e0b', borderRadius: '50%' }}></span> Old Slot (Rescheduled)</span>
             </div>
           </div>
           <div className="calendar-wrapper" style={{ marginTop: '2rem' }}>
@@ -358,11 +361,7 @@ export default function AdminPage() {
                                 let badgeBg, badgeColor, statusText;
                                 
                                 if (isFutureActive) {
-                                  if (matchBooking.status === 'rescheduled') {
-                                    badgeBg = '#f59e0b'; badgeColor = '#ffffff'; statusText = 'Rescheduled';
-                                  } else {
-                                    badgeBg = '#3b82f6'; badgeColor = '#ffffff'; statusText = 'Confirmed';
-                                  }
+                                  badgeBg = '#3b82f6'; badgeColor = '#ffffff'; statusText = 'Confirmed';
                                 } else if (matchBooking.status === 'cancelled') {
                                   badgeBg = '#ef4444'; badgeColor = '#ffffff'; statusText = 'Cancelled';
                                 } else if (matchBooking.status === 'amended') {
@@ -447,7 +446,7 @@ export default function AdminPage() {
                     <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
                       <button className="btn btn-outline" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }} onClick={() => openDetails(p)}><i className="ph ph-list-dashes"></i> Details</button>
                       <button className="btn btn-outline" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem', color: '#0284c7', borderColor: '#bae6fd' }} onClick={() => {
-                          setEditForm({ userId: p.id, parentName: p.parent_name || '', childName: p.child_name || '', country: p.country || '' });
+                          setEditForm({ userId: p.id, parentName: p.parent_name || '', childName: p.child_name || '', country: p.country || '', credits: p.credits || 0 });
                           setActiveModal('edit');
                           setEditError('');
                       }}><i className="ph ph-pencil-simple"></i> Edit</button>
@@ -485,11 +484,7 @@ export default function AdminPage() {
                     const isFutureConfirmed = (b.status === 'confirmed' || b.status === 'rescheduled') && new Date(b.booking_date) >= now;
                     let badge = '';
                     if (isFutureConfirmed) {
-                      if (b.status === 'rescheduled') {
-                        badge = `<span style="background: #f59e0b; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Rescheduled</span>`;
-                      } else {
-                        badge = b.is_monthly ? `<span style="background: #3b82f6; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>` : `<span style="background: #3b82f6; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
-                      }
+                      badge = b.is_monthly ? `<span style="background: #3b82f6; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Active Monthly</span>` : `<span style="background: #3b82f6; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Confirmed</span>`;
                     } else if (b.status === 'cancelled') {
                       badge = `<span style="background: #ef4444; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">Cancelled</span>`;
                     } else if (b.status === 'amended') {
@@ -578,6 +573,14 @@ export default function AdminPage() {
                 <div className="form-group"><label>Parent's Name</label><input type="text" required value={editForm.parentName} onChange={e=>setEditForm({...editForm, parentName: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: 4, border: '1px solid #cbd5e1' }} /></div>
                 <div className="form-group"><label>Child's Name</label><input type="text" required value={editForm.childName} onChange={e=>setEditForm({...editForm, childName: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: 4, border: '1px solid #cbd5e1' }} /></div>
                 <div className="form-group"><label>Country</label><input type="text" value={editForm.country} onChange={e=>setEditForm({...editForm, country: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: 4, border: '1px solid #cbd5e1' }} /></div>
+                <div className="form-group">
+                  <label>Credit Balance <span style={{ fontWeight: 400, color: '#64748b', fontSize: '0.85rem' }}>(1 credit = 1 lesson slot)</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button type="button" onClick={() => setEditForm({...editForm, credits: Math.max(0, editForm.credits - 1)})} style={{ padding: '0.5rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 4, background: '#f8fafc', cursor: 'pointer', fontSize: '1rem' }}>−</button>
+                    <input type="number" min="0" value={editForm.credits} onChange={e=>setEditForm({...editForm, credits: Math.max(0, parseInt(e.target.value) || 0)})} style={{ width: '80px', padding: '0.8rem', borderRadius: 4, border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, fontSize: '1.1rem' }} />
+                    <button type="button" onClick={() => setEditForm({...editForm, credits: editForm.credits + 1})} style={{ padding: '0.5rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 4, background: '#f8fafc', cursor: 'pointer', fontSize: '1rem' }}>+</button>
+                  </div>
+                </div>
                 {editError && <p style={{ color: '#dc2626', marginBottom: '1rem' }}>{editError}</p>}
                 <button type="submit" className="btn btn-primary btn-full" disabled={isEditing}>{isEditing ? 'Saving...' : 'Save Changes'}</button>
               </form>

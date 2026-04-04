@@ -70,16 +70,23 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'edit_user') {
-            const { userId, childName, parentName, country } = payload;
+            const { userId, childName, parentName, country, credits } = payload;
+            const updateData = {
+                child_name: childName,
+                parent_name: parentName,
+                country: country
+            };
+            if (credits !== undefined && credits !== null) {
+                const parsedCredits = parseInt(credits, 10);
+                if (!isNaN(parsedCredits) && parsedCredits >= 0) {
+                    updateData.credits = parsedCredits;
+                }
+            }
             const { error: updateError } = await supabase
                 .from('profiles')
-                .update({
-                    child_name: childName,
-                    parent_name: parentName,
-                    country: country
-                })
+                .update(updateData)
                 .eq('id', userId);
-            
+
             if (updateError) throw updateError;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
@@ -134,21 +141,37 @@ exports.handler = async (event, context) => {
                 .single();
             if (fetchError) throw fetchError;
 
-            // 2. Mark the old booking as amended
+            // 2. Check the new slot isn't already taken by another booking
+            const { data: conflict } = await supabase
+                .from('bookings')
+                .select('id')
+                .eq('booking_date', newIsoString)
+                .in('status', ['confirmed', 'rescheduled'])
+                .neq('id', bookingId);
+            if (conflict && conflict.length > 0) {
+                return {
+                    statusCode: 409,
+                    body: JSON.stringify({ error: 'That time slot is already booked. Please choose a different time.' })
+                };
+            }
+
+            // 3. Mark the old booking as amended
             const { error: updateError } = await supabase
                 .from('bookings')
                 .update({ status: 'amended' })
                 .eq('id', bookingId);
             if (updateError) throw updateError;
 
-            // 3. Insert a new booking with the new date
+            // 4. Insert a new booking with the new date, marked as rescheduled so the
+            //    student can clearly see their lesson was moved (amber badge on calendar)
             const { error: insertError } = await supabase
                 .from('bookings')
                 .insert([{
                     user_id: oldBooking.user_id,
                     booking_date: newIsoString,
                     is_monthly: oldBooking.is_monthly,
-                    status: 'confirmed'
+                    is_ten_lessons: oldBooking.is_ten_lessons,
+                    status: 'rescheduled'
                 }]);
             if (insertError) throw insertError;
 

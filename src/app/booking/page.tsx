@@ -152,12 +152,12 @@ export default function BookingPage() {
               if (data.status === 'paid' || data.status === 'complete') {
                 const creditsAdded = parseInt(data.creditsToAdd || '0', 10);
                 if (creditsAdded > 0) {
-                  const { data: profile } = await supabase.from('profiles').select('credits').eq('id', session.user.id).single();
-                  const newCredits = (profile?.credits || 0) + creditsAdded;
-                  await supabase.from('profiles').update({ credits: newCredits }).eq('id', session.user.id);
                   localStorage.setItem(consumedKey, 'true');
-                  alert(`Success! ${creditsAdded} credits have been added.`);
-                  loadProfileData(session.user.id, session.user.email || '');
+                  // Credits are added by the Stripe webhook on the server side.
+                  // Reload profile to reflect webhook-updated balance; the 5-second
+                  // poll will also sync automatically within a few seconds.
+                  await loadProfileData(session.user.id, session.user.email || '');
+                  alert(`Payment successful! ${creditsAdded} credit(s) have been added to your account.`);
                 }
               }
             });
@@ -260,6 +260,20 @@ export default function BookingPage() {
 
   const confirmBooking = async () => {
     if (!session || !userProfile || !selectedDate) return;
+
+    const now = new Date();
+    const twelveHoursFromNow = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+    if (selectedDate <= now) {
+      alert('This time slot is in the past and cannot be booked.');
+      setSelectedDate(null);
+      return;
+    }
+    if (selectedDate < twelveHoursFromNow) {
+      alert('Lessons must be booked at least 12 hours in advance. Please choose a later time slot.');
+      setSelectedDate(null);
+      return;
+    }
+
     let requiredCredits = 1;
     let numLessons = 1;
     if (bookMonthly) { requiredCredits = 4; numLessons = 4; }
@@ -277,7 +291,7 @@ export default function BookingPage() {
     });
 
     const datesToCheck = bookingInserts.map(b => b.booking_date);
-    const { data: existingSlots } = await supabase.from('bookings').select('id').in('booking_date', datesToCheck).eq('status', 'confirmed');
+    const { data: existingSlots } = await supabase.from('bookings').select('id').in('booking_date', datesToCheck).in('status', ['confirmed', 'rescheduled']);
     if (existingSlots && existingSlots.length > 0) {
       alert('Sorry, one or more of these time slots have just been booked by another student! Please refresh and select a different time.');
       return;
@@ -377,7 +391,7 @@ export default function BookingPage() {
                   upcomingBookings.sort((a,b)=>a.date.getTime()-b.date.getTime()).map((b, i) => (
                     <li key={i}>
                       <span className="booking-item-date">{new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}).format(b.date)}</span>
-                      <span className="booking-item-type" style={{background: b.status === 'rescheduled' ? '#ffedd5' : '#dcfce7', color: b.status === 'rescheduled' ? '#ea580c' : '#16a34a'}}><i className={`ph ph-${b.status === 'rescheduled' ? 'arrows-clockwise' : 'check-circle'}`}></i> {b.status === 'rescheduled' ? 'Rescheduled' : 'Confirmed'} {b.isMonthly ? '(Monthly)' : ''}</span>
+                      <span className="booking-item-type" style={{background: '#dbeafe', color: '#1d4ed8'}}><i className="ph ph-check-circle"></i> Confirmed {b.isMonthly ? '(Monthly)' : ''}</span>
                     </li>
                   ))}
               </ul>
@@ -405,39 +419,6 @@ export default function BookingPage() {
                     })}
                 </ul>
               )}
-            </div>
-          </div>
-
-          <div className="user-dashboard" style={{marginTop:'-1rem', marginBottom:'2rem'}}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}><i className="ph ph-shopping-bag"></i> Buy Lesson Credits</h3>
-            </div>
-            <div className="dashboard-stats" style={{marginBottom:0}}>
-              <div className="stat-card" style={{display:'flex', flexDirection:'column', textAlign:'left'}}>
-                <h4 style={{fontSize:'1.1rem', marginBottom:'0.5rem'}}>Pay As You Go</h4>
-                <p className="price" style={{fontSize:'1.5rem', fontWeight:700, color:'var(--primary-color)', marginBottom:'0.5rem'}}>
-                  £25 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ lesson</span>
-                </p>
-                <p className="small-desc" style={{marginBottom:'1.5rem'}}>Need just a few lessons? Buy exact quantities.</p>
-                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'auto', gap:'1rem'}}>
-                  <div style={{display:'flex', alignItems:'center', border:'1px solid var(--border-color)', borderRadius:'5px'}}>
-                    <button className="btn btn-icon" onClick={() => setPurchaseQty(Math.max(1, purchaseQty-1))} style={{border:'none', borderRadius:0, background:'#f8fafc', padding:'0.5rem 0.8rem', color:'#475569'}}><i className="ph ph-minus"></i></button>
-                    <span style={{padding:'0 1rem', fontWeight:600}}>{purchaseQty}</span>
-                    <button className="btn btn-icon" onClick={() => setPurchaseQty(purchaseQty+1)} style={{border:'none', borderRadius:0, background:'#f8fafc', padding:'0.5rem 0.8rem', color:'#475569'}}><i className="ph ph-plus"></i></button>
-                  </div>
-                  <button className="btn btn-outline" onClick={() => handleTopUp(purchaseQty)} style={{flex:1}}>Buy Now</button>
-                </div>
-              </div>
-
-              <div className="stat-card highlight" style={{display:'flex', flexDirection:'column', textAlign:'left', position:'relative', borderColor:'var(--accent)'}}>
-                <div className="badge" style={{top:'-10px', right:'-10px', background:'#e0f2fe', color:'#0284c7', position:'absolute', padding:'0.2rem 0.8rem', borderRadius:'15px', fontWeight:700, fontSize:'0.85rem'}}>10% Off</div>
-                <h4 style={{fontSize:'1.1rem', marginBottom:'0.5rem'}}>10-Lesson Bundle</h4>
-                <p className="price" style={{fontSize:'1.5rem', fontWeight:700, color:'var(--primary-color)', marginBottom:'0.5rem'}}>
-                  £225 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ package</span>
-                </p>
-                <p className="small-desc" style={{marginBottom:'1.5rem'}}>Unlock priority scheduling when you maintain a 10-lesson balance.</p>
-                <button className="btn btn-primary btn-full" onClick={() => handleTopUp(10)} style={{marginTop:'auto'}}>Secure Bundle</button>
-              </div>
             </div>
           </div>
 
@@ -481,21 +462,28 @@ export default function BookingPage() {
                         const myBooking = upcomingBookings.find(b => b.date.toISOString() === isoStr);
                         const myHistoryBookings = pastBookings.filter(b => b.date.toISOString() === isoStr && (b.status === 'cancelled' || b.status === 'amended'));
                         const isBookedGlobally = allBookedSlots.includes(isoStr);
-                        
+
+                        const slotNow = new Date();
+                        const twelveHoursLater = new Date(slotNow.getTime() + 12 * 60 * 60 * 1000);
+                        const isPast = s.raw <= slotNow;
+                        const isTooSoon = !isPast && s.raw <= twelveHoursLater;
+
                         let btnStyle: React.CSSProperties = {};
                         let btnContent: React.ReactNode = s.display;
                         let btnClass = 'slot-btn';
                         let isDisabled = false;
 
                         if (myBooking) {
-                          if (myBooking.status === 'rescheduled') {
-                            btnStyle = { backgroundColor: '#f59e0b', color: '#ffffff', cursor: 'not-allowed', border: '1px solid #d97706' };
-                            btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Rescheduled</div><div style={{fontSize:'0.85em', opacity:0.9}}>{s.display}</div></>;
-                          } else {
-                            btnStyle = { backgroundColor: '#22c55e', color: '#ffffff', cursor: 'not-allowed', border: '1px solid #16a34a' };
-                            btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Booked</div><div style={{fontSize:'0.85em', opacity:0.9}}>{s.display}</div></>;
-                          }
+                          btnStyle = { backgroundColor: '#3b82f6', color: '#ffffff', cursor: 'not-allowed', border: '1px solid #2563eb' };
+                          btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Confirmed</div><div style={{fontSize:'0.85em', opacity:0.9}}>{s.display}</div></>;
                           btnClass += ' disabled booked-mine';
+                          isDisabled = true;
+                        } else if (isPast) {
+                          btnStyle = { backgroundColor: '#f8fafc', color: '#cbd5e1', cursor: 'not-allowed', border: '1px solid #e2e8f0' };
+                          isDisabled = true;
+                        } else if (isTooSoon) {
+                          btnStyle = { backgroundColor: '#fefce8', color: '#a16207', cursor: 'not-allowed', border: '1px solid #fde68a' };
+                          btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Books closed</div><div style={{fontSize:'0.8em', opacity:0.85}}>{s.display}</div></>;
                           isDisabled = true;
                         } else if (isBookedGlobally) {
                           btnStyle = { backgroundColor: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed', border: '1px solid #cbd5e1' };
@@ -505,10 +493,22 @@ export default function BookingPage() {
                         }
 
                         return (
-                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                             {myHistoryBookings.map((hb, hbIdx) => (
-                              <div key={`h-${hbIdx}`} style={{ fontSize: '0.65rem', padding: '0.2rem', background: hb.status === 'amended' ? '#ffedd5' : '#fee2e2', color: hb.status === 'amended' ? '#ea580c' : '#dc2626', borderRadius: 4, textAlign: 'center', textTransform: 'uppercase', fontWeight: 600 }}>
-                                {hb.status} {s.display}
+                              <div key={`h-${hbIdx}`} style={{
+                                padding: '0.35rem 0.4rem',
+                                background: hb.status === 'amended' ? '#fff7ed' : '#fef2f2',
+                                color: hb.status === 'amended' ? '#c2410c' : '#b91c1c',
+                                border: `1px solid ${hb.status === 'amended' ? '#fed7aa' : '#fecaca'}`,
+                                borderRadius: 4,
+                                textAlign: 'center',
+                                lineHeight: 1.3,
+                                fontWeight: 600
+                              }}>
+                                <div style={{fontSize:'0.75rem', textTransform:'uppercase', letterSpacing:'0.04em'}}>
+                                  {hb.status === 'amended' ? 'Amended' : 'Cancelled'}
+                                </div>
+                                <div style={{fontSize:'0.8rem', opacity:0.85}}>{s.display}</div>
                               </div>
                             ))}
                             <button className={btnClass} disabled={isDisabled} style={btnStyle} onClick={() => setSelectedDate(s.raw)}>
@@ -521,6 +521,39 @@ export default function BookingPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="user-dashboard" style={{marginTop:'2rem', marginBottom:'2rem'}}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}><i className="ph ph-shopping-bag"></i> Buy Lesson Credits</h3>
+            </div>
+            <div className="dashboard-stats" style={{marginBottom:0}}>
+              <div className="stat-card" style={{display:'flex', flexDirection:'column', textAlign:'left'}}>
+                <h4 style={{fontSize:'1.1rem', marginBottom:'0.5rem'}}>Pay As You Go</h4>
+                <p className="price" style={{fontSize:'1.5rem', fontWeight:700, color:'var(--primary-color)', marginBottom:'0.5rem'}}>
+                  £25 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ lesson</span>
+                </p>
+                <p className="small-desc" style={{marginBottom:'1.5rem'}}>Need just a few lessons? Buy exact quantities.</p>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'auto', gap:'1rem'}}>
+                  <div style={{display:'flex', alignItems:'center', border:'1px solid var(--border-color)', borderRadius:'5px'}}>
+                    <button className="btn btn-icon" onClick={() => setPurchaseQty(Math.max(1, purchaseQty-1))} style={{border:'none', borderRadius:0, background:'#f8fafc', padding:'0.5rem 0.8rem', color:'#475569'}}><i className="ph ph-minus"></i></button>
+                    <span style={{padding:'0 1rem', fontWeight:600}}>{purchaseQty}</span>
+                    <button className="btn btn-icon" onClick={() => setPurchaseQty(purchaseQty+1)} style={{border:'none', borderRadius:0, background:'#f8fafc', padding:'0.5rem 0.8rem', color:'#475569'}}><i className="ph ph-plus"></i></button>
+                  </div>
+                  <button className="btn btn-outline" onClick={() => handleTopUp(purchaseQty)} style={{flex:1}}>Buy Now</button>
+                </div>
+              </div>
+
+              <div className="stat-card highlight" style={{display:'flex', flexDirection:'column', textAlign:'left', position:'relative', borderColor:'var(--accent)'}}>
+                <div className="badge" style={{top:'-10px', right:'-10px', background:'#e0f2fe', color:'#0284c7', position:'absolute', padding:'0.2rem 0.8rem', borderRadius:'15px', fontWeight:700, fontSize:'0.85rem'}}>10% Off</div>
+                <h4 style={{fontSize:'1.1rem', marginBottom:'0.5rem'}}>10-Lesson Bundle</h4>
+                <p className="price" style={{fontSize:'1.5rem', fontWeight:700, color:'var(--primary-color)', marginBottom:'0.5rem'}}>
+                  £225 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ package</span>
+                </p>
+                <p className="small-desc" style={{marginBottom:'1.5rem'}}>Unlock priority scheduling when you maintain a 10-lesson balance.</p>
+                <button className="btn btn-primary btn-full" onClick={() => handleTopUp(10)} style={{marginTop:'auto'}}>Secure Bundle</button>
+              </div>
             </div>
           </div>
 
