@@ -45,7 +45,7 @@ export default function BookingPage() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
   const [pastBookings, setPastBookings] = useState<any[]>([]);
-  const [allBookedSlots, setAllBookedSlots] = useState<string[]>([]);
+  const [allBookedSlots, setAllBookedSlots] = useState<number[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const d = new Date();
     const day = d.getDay();
@@ -121,7 +121,7 @@ export default function BookingPage() {
       });
       const data = await res.json();
       if (data.bookedSlots) {
-        const normalized = data.bookedSlots.map((d: string) => new Date(d).toISOString());
+        const normalized = data.bookedSlots.map((d: string) => new Date(d).getTime());
         setAllBookedSlots(prev => {
           const prevStr = JSON.stringify(prev);
           const newStr = JSON.stringify(normalized);
@@ -468,7 +468,7 @@ export default function BookingPage() {
                         const myBooking = upcomingBookings.find(b => b.date.toISOString() === isoStr);
                         const myHistoryBookings = pastBookings.filter(b => b.date.toISOString() === isoStr && (b.status === 'cancelled' || b.status === 'amended'));
                         const myCompletedBooking = pastBookings.find(b => b.date.toISOString() === isoStr && (b.status === 'confirmed' || b.status === 'rescheduled'));
-                        const isBookedGlobally = allBookedSlots.includes(isoStr);
+                        const isBookedGlobally = allBookedSlots.includes(s.raw.getTime());
 
                         const slotNow = new Date();
                         const twelveHoursLater = new Date(slotNow.getTime() + 12 * 60 * 60 * 1000);

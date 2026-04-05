@@ -74,7 +74,10 @@ exports.handler = async (event, context) => {
 
             if (error) throw error;
 
-            const bookedDates = bookings.map(b => b.booking_date);
+            // Always return UTC ISO strings with Z suffix so browsers in any
+            // timezone parse them correctly (raw Supabase values may lack tz info,
+            // causing browsers to treat them as local time and mismatching slot checks)
+            const bookedDates = bookings.map(b => new Date(b.booking_date).toISOString());
             return { statusCode: 200, body: JSON.stringify({ bookedSlots: bookedDates }) };
         }
 
