@@ -1,5 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Stripe is initialised lazily inside verify_checkout only — so a missing key
+// cannot crash unrelated actions like get_booked_slots at startup.
+let _stripe = null;
+function getStripe() {
+    if (!_stripe) _stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    return _stripe;
+}
 
 exports.handler = async (event, context) => {
     if (event.httpMethod !== 'POST') {
@@ -89,7 +95,7 @@ exports.handler = async (event, context) => {
                 return { statusCode: 400, body: JSON.stringify({ error: 'Missing sessionId' }) };
             }
 
-            const session = await stripe.checkout.sessions.retrieve(sessionId);
+            const session = await getStripe().checkout.sessions.retrieve(sessionId);
             return { 
                 statusCode: 200, 
                 body: JSON.stringify({ 
