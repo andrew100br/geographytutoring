@@ -24,13 +24,11 @@ export default function GcseStudyTipsPost() {
         <div
           className="post-hero-image"
           style={{
-            background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 60%, #3b82f6 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '6rem',
+            backgroundImage: 'url(/gcse_study_tips.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
           }}
-        >
-          📚
-        </div>
+        />
 
         <div className="post-content">
           <p>GCSE Geography can often feel overwhelming due to the sheer volume of case studies, facts, and key

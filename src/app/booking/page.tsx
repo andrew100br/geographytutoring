@@ -461,6 +461,7 @@ export default function BookingPage() {
                         const isoStr = s.raw.toISOString();
                         const myBooking = upcomingBookings.find(b => b.date.toISOString() === isoStr);
                         const myHistoryBookings = pastBookings.filter(b => b.date.toISOString() === isoStr && (b.status === 'cancelled' || b.status === 'amended'));
+                        const myCompletedBooking = pastBookings.find(b => b.date.toISOString() === isoStr && (b.status === 'confirmed' || b.status === 'rescheduled'));
                         const isBookedGlobally = allBookedSlots.includes(isoStr);
 
                         const slotNow = new Date();
@@ -468,8 +469,37 @@ export default function BookingPage() {
                         const isPast = s.raw <= slotNow;
                         const isTooSoon = !isPast && s.raw <= twelveHoursLater;
 
-                        // Hide past slots and slots within 12 hours (unless it's the user's own confirmed booking)
-                        if ((isPast || isTooSoon) && !myBooking && myHistoryBookings.length === 0) return null;
+                        // For past slots: show completed/history cards only — no grey button alongside
+                        if (isPast && !myBooking) {
+                          if (!myCompletedBooking && myHistoryBookings.length === 0) return null;
+                          return (
+                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                              {myCompletedBooking && (
+                                <div style={{ padding: '0.35rem 0.4rem', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 4, textAlign: 'center', lineHeight: 1.3, fontWeight: 600 }}>
+                                  <div style={{fontSize:'0.75rem', textTransform:'uppercase', letterSpacing:'0.04em'}}>Completed</div>
+                                  <div style={{fontSize:'0.8rem', opacity:0.85}}>{s.display}</div>
+                                </div>
+                              )}
+                              {myHistoryBookings.map((hb, hbIdx) => (
+                                <div key={`h-${hbIdx}`} style={{
+                                  padding: '0.35rem 0.4rem',
+                                  background: hb.status === 'amended' ? '#fff7ed' : '#fef2f2',
+                                  color: hb.status === 'amended' ? '#c2410c' : '#b91c1c',
+                                  border: `1px solid ${hb.status === 'amended' ? '#fed7aa' : '#fecaca'}`,
+                                  borderRadius: 4, textAlign: 'center', lineHeight: 1.3, fontWeight: 600
+                                }}>
+                                  <div style={{fontSize:'0.75rem', textTransform:'uppercase', letterSpacing:'0.04em'}}>
+                                    {hb.status === 'amended' ? 'Rescheduled' : 'Cancelled'}
+                                  </div>
+                                  <div style={{fontSize:'0.8rem', opacity:0.85}}>{s.display}</div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+
+                        // Hide future slots within 12 hours
+                        if (isTooSoon && !myBooking) return null;
 
                         let btnStyle: React.CSSProperties = {};
                         let btnContent: React.ReactNode = s.display;
@@ -481,9 +511,6 @@ export default function BookingPage() {
                           btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Confirmed</div><div style={{fontSize:'0.85em', opacity:0.9}}>{s.display}</div></>;
                           btnClass += ' disabled booked-mine';
                           isDisabled = true;
-                        } else if (isPast || isTooSoon) {
-                          btnStyle = { backgroundColor: '#f8fafc', color: '#cbd5e1', cursor: 'not-allowed', border: '1px solid #e2e8f0' };
-                          isDisabled = true;
                         } else if (isBookedGlobally) {
                           btnStyle = { backgroundColor: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed', border: '1px solid #cbd5e1' };
                           btnContent = 'Unavailable';
@@ -493,23 +520,6 @@ export default function BookingPage() {
 
                         return (
                           <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                            {myHistoryBookings.map((hb, hbIdx) => (
-                              <div key={`h-${hbIdx}`} style={{
-                                padding: '0.35rem 0.4rem',
-                                background: hb.status === 'amended' ? '#fff7ed' : '#fef2f2',
-                                color: hb.status === 'amended' ? '#c2410c' : '#b91c1c',
-                                border: `1px solid ${hb.status === 'amended' ? '#fed7aa' : '#fecaca'}`,
-                                borderRadius: 4,
-                                textAlign: 'center',
-                                lineHeight: 1.3,
-                                fontWeight: 600
-                              }}>
-                                <div style={{fontSize:'0.75rem', textTransform:'uppercase', letterSpacing:'0.04em'}}>
-                                  {hb.status === 'amended' ? 'Amended' : 'Cancelled'}
-                                </div>
-                                <div style={{fontSize:'0.8rem', opacity:0.85}}>{s.display}</div>
-                              </div>
-                            ))}
                             <button className={btnClass} disabled={isDisabled} style={btnStyle} onClick={() => setSelectedDate(s.raw)}>
                               {btnContent}
                             </button>

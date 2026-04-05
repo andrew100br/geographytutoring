@@ -24,13 +24,11 @@ export default function WhyGeographyMattersPost() {
         <div
           className="post-hero-image"
           style={{
-            background: 'linear-gradient(135deg, #064e3b 0%, #059669 60%, #34d399 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '6rem',
+            backgroundImage: 'url(/why_geography_matters.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
           }}
-        >
-          🌍
-        </div>
+        />
 
         <div className="post-content">
           <p>When you ask people what Geography is, many still think it&apos;s simply about memorizing capital cities

@@ -6,24 +6,21 @@ const posts = [
     date: 'March 15, 2024',
     title: 'How to effectively study for GCSE Geography',
     excerpt: 'Discover proven revision techniques and strategies to confidently tackle your upcoming Geography exams.',
-    gradient: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 60%, #3b82f6 100%)',
-    icon: '📚',
+    image: '/gcse_study_tips.png',
   },
   {
     slug: 'why-geography-matters',
     date: 'February 28, 2024',
     title: 'Why Geography matters more than ever in 2024',
     excerpt: 'From climate change to geopolitics, understanding our world is crucial. Here\'s why geography is the most relevant subject today.',
-    gradient: 'linear-gradient(135deg, #064e3b 0%, #059669 60%, #34d399 100%)',
-    icon: '🌍',
+    image: '/why_geography_matters.png',
   },
   {
     slug: 'tectonic-hazards',
     date: 'January 10, 2024',
     title: 'Understanding Tectonic Hazards',
     excerpt: 'A deep dive into earthquakes, volcanoes, and tsunamis. Perfect for AQA and Edexcel students looking to master this core topic.',
-    gradient: 'linear-gradient(135deg, #7c2d12 0%, #dc2626 60%, #f97316 100%)',
-    icon: '🌋',
+    image: '/tectonic_hazards.png',
   },
 ];
 
@@ -41,14 +38,12 @@ export default function BlogPage() {
           <p>Geography insights, study tips, and news from Teacher Andrew.</p>
         </div>
         <div className="blog-grid">
-          {posts.map((post, i) => (
+          {posts.map((post) => (
             <article key={post.slug} className="blog-card">
               <div
                 className="blog-image"
-                style={{ background: post.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem' }}
-              >
-                {post.icon}
-              </div>
+                style={{ backgroundImage: `url(${post.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              />
               <div className="blog-content">
                 <span className="blog-date">{post.date}</span>
                 <h3 className="blog-title">{post.title}</h3>

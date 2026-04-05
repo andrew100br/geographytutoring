@@ -24,13 +24,11 @@ export default function TectonicHazardsPost() {
         <div
           className="post-hero-image"
           style={{
-            background: 'linear-gradient(135deg, #7c2d12 0%, #dc2626 60%, #f97316 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '6rem',
+            backgroundImage: 'url(/tectonic_hazards.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
           }}
-        >
-          🌋
-        </div>
+        />
 
         <div className="post-content">
           <p>Tectonic hazards—earthquakes, volcanoes, and tsunamis—are some of the most dramatic and devastating
