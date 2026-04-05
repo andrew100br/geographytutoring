@@ -13,7 +13,7 @@ export default function WhyGeographyMattersPost() {
           <i className="ph ph-arrow-left"></i> Back to Blog
         </Link>
 
-        <div className="post-header reveal">
+        <div className="post-header">
           <div className="post-meta">
             <span><i className="ph ph-calendar-blank"></i> February 28, 2024</span>
             <span><i className="ph ph-clock"></i> 4 min read</span>
@@ -22,7 +22,7 @@ export default function WhyGeographyMattersPost() {
         </div>
 
         <div
-          className="post-hero-image reveal reveal-delay-1"
+          className="post-hero-image"
           style={{
             background: 'linear-gradient(135deg, #064e3b 0%, #059669 60%, #34d399 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -32,7 +32,7 @@ export default function WhyGeographyMattersPost() {
           🌍
         </div>
 
-        <div className="post-content reveal reveal-delay-2">
+        <div className="post-content">
           <p>When you ask people what Geography is, many still think it&apos;s simply about memorizing capital cities
             or knowing the names of the longest rivers. But in reality, Geography is the study of how our
             complex world functions, and in 2024, it has never been more relevant.</p>

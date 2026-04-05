@@ -468,6 +468,9 @@ export default function BookingPage() {
                         const isPast = s.raw <= slotNow;
                         const isTooSoon = !isPast && s.raw <= twelveHoursLater;
 
+                        // Hide past slots and slots within 12 hours (unless it's the user's own confirmed booking)
+                        if ((isPast || isTooSoon) && !myBooking && myHistoryBookings.length === 0) return null;
+
                         let btnStyle: React.CSSProperties = {};
                         let btnContent: React.ReactNode = s.display;
                         let btnClass = 'slot-btn';
@@ -478,12 +481,8 @@ export default function BookingPage() {
                           btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Confirmed</div><div style={{fontSize:'0.85em', opacity:0.9}}>{s.display}</div></>;
                           btnClass += ' disabled booked-mine';
                           isDisabled = true;
-                        } else if (isPast) {
+                        } else if (isPast || isTooSoon) {
                           btnStyle = { backgroundColor: '#f8fafc', color: '#cbd5e1', cursor: 'not-allowed', border: '1px solid #e2e8f0' };
-                          isDisabled = true;
-                        } else if (isTooSoon) {
-                          btnStyle = { backgroundColor: '#fefce8', color: '#a16207', cursor: 'not-allowed', border: '1px solid #fde68a' };
-                          btnContent = <><div style={{fontWeight:600, lineHeight: 1.2}}>Books closed</div><div style={{fontSize:'0.8em', opacity:0.85}}>{s.display}</div></>;
                           isDisabled = true;
                         } else if (isBookedGlobally) {
                           btnStyle = { backgroundColor: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed', border: '1px solid #cbd5e1' };

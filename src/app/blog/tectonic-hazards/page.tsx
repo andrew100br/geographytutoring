@@ -13,7 +13,7 @@ export default function TectonicHazardsPost() {
           <i className="ph ph-arrow-left"></i> Back to Blog
         </Link>
 
-        <div className="post-header reveal">
+        <div className="post-header">
           <div className="post-meta">
             <span><i className="ph ph-calendar-blank"></i> January 10, 2024</span>
             <span><i className="ph ph-clock"></i> 6 min read</span>
@@ -22,7 +22,7 @@ export default function TectonicHazardsPost() {
         </div>
 
         <div
-          className="post-hero-image reveal reveal-delay-1"
+          className="post-hero-image"
           style={{
             background: 'linear-gradient(135deg, #7c2d12 0%, #dc2626 60%, #f97316 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -32,7 +32,7 @@ export default function TectonicHazardsPost() {
           🌋
         </div>
 
-        <div className="post-content reveal reveal-delay-2">
+        <div className="post-content">
           <p>Tectonic hazards—earthquakes, volcanoes, and tsunamis—are some of the most dramatic and devastating
             natural events on Earth. For GCSE students taking AQA or Edexcel, demonstrating a solid
             understanding of the physical processes behind these hazards, as well as their impacts and

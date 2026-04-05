@@ -36,13 +36,13 @@ export default function BlogPage() {
   return (
     <div className="blog-main bg-light">
       <div className="container">
-        <div className="blog-header section-header reveal">
+        <div className="blog-header section-header">
           <h2>Our Blog</h2>
           <p>Geography insights, study tips, and news from Teacher Andrew.</p>
         </div>
         <div className="blog-grid">
           {posts.map((post, i) => (
-            <article key={post.slug} className={`blog-card reveal${i > 0 ? ` reveal-delay-${i}` : ''}`}>
+            <article key={post.slug} className="blog-card">
               <div
                 className="blog-image"
                 style={{ background: post.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem' }}
