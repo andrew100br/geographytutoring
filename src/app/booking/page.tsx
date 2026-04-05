@@ -287,44 +287,50 @@ export default function BookingPage() {
     const bookingInserts = Array.from({ length: numLessons }).map((_, i) => {
       const nextDate = new Date(selectedDate);
       nextDate.setDate(selectedDate.getDate() + (i * 7));
-      return { user_id: session.user.id, booking_date: nextDate.toISOString(), is_monthly: bookMonthly, is_ten_lessons: bookTenLessons, status: 'confirmed' };
+      return { booking_date: nextDate.toISOString(), is_monthly: bookMonthly, is_ten_lessons: bookTenLessons };
     });
 
-    const datesToCheck = bookingInserts.map(b => b.booking_date);
-    const { data: existingSlots } = await supabase.from('bookings').select('id').in('booking_date', datesToCheck).in('status', ['confirmed', 'rescheduled']);
-    if (existingSlots && existingSlots.length > 0) {
-      alert('Sorry, one or more of these time slots have just been booked by another student! Please refresh and select a different time.');
+    // Server-side booking: conflict check + insert done with service role key (bypasses RLS, sees all users' bookings)
+    const token = session.access_token;
+    const bookRes = await fetch('/.netlify/functions/student-action', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'book_slot', token, data: { bookingInserts } })
+    });
+    const bookData = await bookRes.json();
+
+    if (!bookRes.ok) {
+      alert(bookData.error || 'Failed to save booking.');
+      if (bookRes.status === 409) {
+        // Slot just got taken — refresh availability immediately
+        await fetchAllBookedSlots();
+        setSelectedDate(null);
+      }
       return;
     }
 
-    const { error } = await supabase.from('bookings').insert(bookingInserts);
-    if (!error) {
-      const newCredits = userProfile.credits - requiredCredits;
-      await supabase.from('profiles').update({ credits: newCredits }).eq('id', session.user.id);
-      setUserProfile({ ...userProfile, credits: newCredits });
+    setUserProfile({ ...userProfile, credits: bookData.newCredits });
 
-      try {
-          const datesStr = bookingInserts.map(b => new Date(b.booking_date).toLocaleString()).join('\n');
-          fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              body: JSON.stringify({
-                  name: "System Notification",
-                  email: session.user.email,
-                  _subject: `New Booking Alert: ${userProfile.child_name || 'Unknown'} (${userProfile.parent_name || 'Unknown'})`,
-                  _template: 'table',
-                  _captcha: "false",
-                  message: `A new lesson has been booked.\n\nStudent: ${userProfile.child_name || 'Unknown'}\nParent: ${userProfile.parent_name || 'Unknown'}\nDates:\n${datesStr}\n\nCheck the admin portal for full details.`
-              })
-          });
-      } catch (err) { console.error("Could not send email", err); }
+    try {
+        const datesStr = bookingInserts.map(b => new Date(b.booking_date).toLocaleString()).join('\n');
+        fetch('https://formsubmit.co/ajax/andrew100br@gmail.com', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                name: "System Notification",
+                email: session.user.email,
+                _subject: `New Booking Alert: ${userProfile.child_name || 'Unknown'} (${userProfile.parent_name || 'Unknown'})`,
+                _template: 'table',
+                _captcha: "false",
+                message: `A new lesson has been booked.\n\nStudent: ${userProfile.child_name || 'Unknown'}\nParent: ${userProfile.parent_name || 'Unknown'}\nDates:\n${datesStr}\n\nCheck the admin portal for full details.`
+            })
+        });
+    } catch (err) { console.error("Could not send email", err); }
 
-      const newBookings = bookingInserts.map(b => ({ date: new Date(b.booking_date), isMonthly: b.is_monthly, isTenLessons: b.is_ten_lessons, status: 'confirmed' }));
-      setUpcomingBookings([...upcomingBookings, ...newBookings]);
-      setAllBookedSlots([...allBookedSlots, ...bookingInserts.map(b => b.booking_date)]);
-      setSelectedDate(null);
-      alert('Booking successful!');
-    } else { alert('Failed to save booking.'); }
+    const newBookings = bookingInserts.map(b => ({ date: new Date(b.booking_date), isMonthly: b.is_monthly, isTenLessons: b.is_ten_lessons, status: 'confirmed' }));
+    setUpcomingBookings([...upcomingBookings, ...newBookings]);
+    await fetchAllBookedSlots(); // Immediately refresh so other clients see it taken
+    setSelectedDate(null);
+    alert('Booking successful!');
   };
 
   if (loading) return <div className="container" style={{ padding: '4rem 0', textAlign:'center' }}>Loading...</div>;

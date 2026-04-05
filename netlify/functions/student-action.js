@@ -46,6 +46,52 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        if (action === 'book_slot') {
+            const { bookingInserts } = data;
+
+            if (!bookingInserts || !Array.isArray(bookingInserts) || bookingInserts.length === 0) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'Invalid booking data.' }) };
+            }
+
+            // Force all bookings to belong to the authenticated user (ignore any user_id from client)
+            const safeDates = bookingInserts.map(b => b.booking_date);
+
+            // Conflict check using service role key — bypasses RLS, sees ALL users' bookings
+            const serviceSupabase = createClient(
+                process.env.SUPABASE_URL,
+                process.env.SUPABASE_SERVICE_ROLE_KEY
+            );
+
+            const { data: conflicts } = await serviceSupabase
+                .from('bookings')
+                .select('booking_date')
+                .in('booking_date', safeDates)
+                .in('status', ['confirmed', 'rescheduled']);
+
+            if (conflicts && conflicts.length > 0) {
+                return { statusCode: 409, body: JSON.stringify({ error: 'One or more of these time slots have just been booked by another student. Please select a different time.' }) };
+            }
+
+            // Insert bookings
+            const rows = bookingInserts.map(b => ({
+                user_id: user.id,
+                booking_date: b.booking_date,
+                is_monthly: b.is_monthly,
+                is_ten_lessons: b.is_ten_lessons,
+                status: 'confirmed'
+            }));
+
+            const { error: insertError } = await serviceSupabase.from('bookings').insert(rows);
+            if (insertError) throw insertError;
+
+            // Deduct credits
+            const { data: profile } = await serviceSupabase.from('profiles').select('credits').eq('id', user.id).single();
+            const newCredits = (profile?.credits || 0) - bookingInserts.length;
+            await serviceSupabase.from('profiles').update({ credits: newCredits }).eq('id', user.id);
+
+            return { statusCode: 200, body: JSON.stringify({ success: true, newCredits }) };
+        }
+
         return { statusCode: 400, body: JSON.stringify({ error: 'Unknown student action.' }) };
 
     } catch (error) {
