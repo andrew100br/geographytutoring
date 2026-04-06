@@ -1,7 +1,4 @@
-const k1 = 'sk_live_' + '51T6DFRJ2fAU2aYdU' + 'vmqsYMSBJpXjREAkJMh';
-const k2 = '7OtZ5PXcdsP6KsIakTCuM' + 'JhQP71ePiWAXEggTQM' + '0NKXPnvR4yMk6c00KiRGpIAN';
-const backupKey = k1 + k2;
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || backupKey);
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { createClient } = require('@supabase/supabase-js');
 
 // Must provide raw body for Stripe webhook signature verification
