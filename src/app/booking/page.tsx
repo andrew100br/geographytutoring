@@ -3,25 +3,48 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import ContactForm from '@/components/ContactForm';
 
+const THAI_TZ = 'Asia/Bangkok';
+
+// Format for the local timezone label (e.g. "BST", "EDT")
+const localTzAbbr = (() => {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date());
+    return parts.find(p => p.type === 'timeZoneName')?.value || '';
+  } catch { return ''; }
+})();
+
+function getThaiDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const p: Record<string, string> = {};
+  parts.forEach(({ type, value }) => { p[type] = value; });
+  return p;
+}
+
+function getThaiDayOfWeek(date: Date) {
+  const label = new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, weekday: 'short' }).format(date);
+  const map: Record<string, number> = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+  return map[label] ?? new Date(date).getDay();
+}
+
 function generateThaiTimeSlots(baseDateStr: Date) {
   const schedule: Record<number, string[]> = {
-    1: ['17:00'], 2: ['17:00'], 3: ['17:00'], 
-    4: ['17:00', '18:00'], 5: ['17:00'], 6: [], 
+    1: ['17:00'], 2: ['17:00'], 3: ['17:00'],
+    4: ['17:00', '18:00'], 5: ['17:00'], 6: [],
     0: ['16:00', '17:00', '18:00']
   };
-  const targetDate = new Date(baseDateStr);
-  const dayOfWeek = targetDate.getDay();
+  // Use Thailand's day-of-week to pick the schedule, not the client's local day
+  const dayOfWeek = getThaiDayOfWeek(baseDateStr);
   const slots: { raw: Date, display: string }[] = [];
 
   if (schedule[dayOfWeek]?.length > 0) {
+    const { year, month, day } = getThaiDateParts(baseDateStr);
     schedule[dayOfWeek].forEach(timeStr => {
-      const yyyy = targetDate.getFullYear();
-      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const dd = String(targetDate.getDate()).padStart(2, '0');
-      const isoStr = `${yyyy}-${mm}-${dd}T${timeStr}:00+07:00`;
-      const localDateObj = new Date(isoStr);
-      const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-      slots.push({ raw: localDateObj, display: timeFormatter.format(localDateObj) });
+      const isoStr = `${year}-${month}-${day}T${timeStr}:00+07:00`;
+      const raw = new Date(isoStr);
+      // Display in client's local timezone with timezone abbreviation
+      const localTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(raw);
+      const display = localTzAbbr ? `${localTime} ${localTzAbbr}` : localTime;
+      slots.push({ raw, display });
     });
   }
   return slots;
@@ -450,8 +473,9 @@ export default function BookingPage() {
                 dayBookings.forEach(b => {
                    const isoStr = b.date.toISOString();
                    if (!slots.some(s => s.raw.toISOString() === isoStr)) {
-                       const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-                       slots.push({ raw: b.date, display: timeFormatter.format(b.date) });
+                       const localTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(b.date);
+                       const display = localTzAbbr ? `${localTime} ${localTzAbbr}` : localTime;
+                       slots.push({ raw: b.date, display });
                    }
                 });
                 slots.sort((a,b) => a.raw.getTime() - b.raw.getTime());

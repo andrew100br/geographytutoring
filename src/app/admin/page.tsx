@@ -3,25 +3,41 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+const THAI_TZ = 'Asia/Bangkok';
+
+// Admin calendar always shows times in Thailand timezone (UTC+7) regardless of
+// where the admin's browser is located.
+const thaiFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: THAI_TZ, hour: '2-digit', minute: '2-digit' });
+
+function getThaiDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const p: Record<string, string> = {};
+  parts.forEach(({ type, value }) => { p[type] = value; });
+  return p;
+}
+
+function getThaiDayOfWeek(date: Date) {
+  // 0=Sun ... 6=Sat in Thailand timezone
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, weekday: 'short' }).format(date);
+  const map: Record<string, number> = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+  return map[parts] ?? new Date(date).getDay();
+}
+
 function generateThaiTimeSlots(baseDateStr: Date) {
   const schedule: Record<number, string[]> = {
-    1: ['17:00'], 2: ['17:00'], 3: ['17:00'], 
-    4: ['17:00', '18:00'], 5: ['17:00'], 6: [], 
+    1: ['17:00'], 2: ['17:00'], 3: ['17:00'],
+    4: ['17:00', '18:00'], 5: ['17:00'], 6: [],
     0: ['16:00', '17:00', '18:00']
   };
-  const targetDate = new Date(baseDateStr);
-  const dayOfWeek = targetDate.getDay();
+  const dayOfWeek = getThaiDayOfWeek(baseDateStr);
   const slots: { raw: Date, display: string }[] = [];
 
   if (schedule[dayOfWeek]?.length > 0) {
+    const { year, month, day } = getThaiDateParts(baseDateStr);
     schedule[dayOfWeek].forEach(timeStr => {
-      const yyyy = targetDate.getFullYear();
-      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const dd = String(targetDate.getDate()).padStart(2, '0');
-      const isoStr = `${yyyy}-${mm}-${dd}T${timeStr}:00+07:00`;
-      const localDateObj = new Date(isoStr);
-      const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-      slots.push({ raw: localDateObj, display: timeFormatter.format(localDateObj) });
+      const isoStr = `${year}-${month}-${day}T${timeStr}:00+07:00`;
+      const raw = new Date(isoStr);
+      slots.push({ raw, display: thaiFormatter.format(raw) });
     });
   }
   return slots;
@@ -309,7 +325,10 @@ export default function AdminPage() {
         {/* GLOBAL UPCOMING SCHEDULE */}
         <div style={{ background: '#fff', padding: '1.5rem', borderRadius: 8, border: '1px solid var(--border-color)', marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Teaching Schedule</h2>
+            <div>
+                <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Teaching Schedule</h2>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>Times shown in Thailand time (UTC+7)</p>
+              </div>
             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#3b82f6', borderRadius: '50%' }}></span> Confirmed</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#22c55e', borderRadius: '50%' }}></span> Completed</span>
@@ -337,8 +356,7 @@ export default function AdminPage() {
                    const localDateObj = new Date(b.booking_date);
                    const isoStr = localDateObj.toISOString();
                    if (!slots.some(s => s.raw.toISOString() === isoStr)) {
-                       const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-                       slots.push({ raw: localDateObj, display: timeFormatter.format(localDateObj) });
+                       slots.push({ raw: localDateObj, display: thaiFormatter.format(localDateObj) });
                    }
                 });
                 slots.sort((a,b) => a.raw.getTime() - b.raw.getTime());
@@ -346,8 +364,8 @@ export default function AdminPage() {
                 return (
                   <div key={i} className="day-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <div style={{ textAlign: 'center', padding: '0.5rem', background: isToday ? 'var(--primary-color)' : 'var(--bg-light)', color: isToday ? '#fff' : 'inherit', borderRadius: 4 }}>
-                      <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', display: 'block' }}>{new Intl.DateTimeFormat('en-US', {weekday:'short'}).format(day)}</span>
-                      <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{day.getDate()}</span>
+                      <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', display: 'block' }}>{new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, weekday:'short' }).format(day)}</span>
+                      <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, day: 'numeric' }).format(day)}</span>
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
