@@ -29,6 +29,8 @@ function generateThaiTimeSlots(baseDateStr: Date) {
 
 const MOCK_ADMIN_USER = 'admin';
 const LESSON_PRICE = 25;
+// Only count revenue from bookings on or after this date (go-live date, excludes test data)
+const REVENUE_START_DATE = new Date('2026-04-06T00:00:00Z');
 
 export default function AdminPage() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
@@ -123,7 +125,7 @@ export default function AdminPage() {
         let scheduleList = [...allBookings];
         scheduleList.forEach(b => {
           const bDate = new Date(b.booking_date);
-          if (bDate < now && b.status !== 'cancelled' && b.status !== 'amended') {
+          if (bDate < now && bDate >= REVENUE_START_DATE && b.status !== 'cancelled' && b.status !== 'amended') {
             actualRevenue += LESSON_PRICE;
           }
         });
