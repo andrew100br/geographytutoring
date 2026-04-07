@@ -97,7 +97,7 @@ export default function Home() {
         <div className="container">
           <div className="section-header reveal">
             <h2>Tutoring Services</h2>
-            <p>Tailored lessons designed to boost confidence and achieve academic success. <strong>All lessons are conducted online via Zoom.</strong></p>
+            <p>Tailored lessons designed to boost confidence and achieve academic success. <strong>All lessons are conducted online via Zoom.</strong> Passion driven teaching at accessibly low prices, because every student deserves a chance!</p>
           </div>
 
           <div className="services-grid">

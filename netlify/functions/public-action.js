@@ -75,7 +75,7 @@ exports.handler = async (event, context) => {
             const { data: bookings, error } = await supabase
                 .from('bookings')
                 .select('booking_date')
-                .in('status', ['confirmed', 'rescheduled'])
+                .in('status', ['confirmed', 'rescheduled', 'blocked'])
                 .gte('booking_date', new Date().toISOString());
 
             if (error) throw error;

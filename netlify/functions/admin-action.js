@@ -190,6 +190,30 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        if (action === 'block_slot') {
+            const { slotIso } = payload;
+            // Insert a placeholder booking with no user_id and status 'blocked'
+            const { error } = await supabase.from('bookings').insert([{
+                user_id: null,
+                booking_date: slotIso,
+                is_monthly: false,
+                is_ten_lessons: false,
+                status: 'blocked'
+            }]);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'unblock_slot') {
+            const { slotIso } = payload;
+            const { error } = await supabase.from('bookings')
+                .delete()
+                .eq('booking_date', slotIso)
+                .eq('status', 'blocked');
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
         return {
             statusCode: 400,
             body: JSON.stringify({ error: 'Unknown action specified.' })

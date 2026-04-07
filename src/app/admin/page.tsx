@@ -72,6 +72,7 @@ export default function AdminPage() {
 
   // Modals
   const [activeModal, setActiveModal] = useState<'details' | 'reschedule' | 'add' | 'edit' | null>(null);
+  const [blockingSlot, setBlockingSlot] = useState<string | null>(null);
 
   // Details Modal State
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -224,6 +225,19 @@ export default function AdminPage() {
     setActiveModal('reschedule');
   };
 
+  const handleBlockSlot = async (slotIso: string, isBlocked: boolean) => {
+    setBlockingSlot(slotIso);
+    try {
+      const action = isBlocked ? 'unblock_slot' : 'block_slot';
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action, password: adminPass, payload: { slotIso } })
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed.'); }
+      loadDashboardData(adminPass);
+    } catch (err: any) { alert(err.message); }
+    setBlockingSlot(null);
+  };
+
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAdding(true);
@@ -334,6 +348,7 @@ export default function AdminPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#22c55e', borderRadius: '50%' }}></span> Completed</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#ef4444', borderRadius: '50%' }}></span> Cancelled</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#f59e0b', borderRadius: '50%' }}></span> Old Slot (Rescheduled)</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#fecaca', borderRadius: '50%', border: '1px solid #dc2626' }}></span> Blocked</span>
             </div>
           </div>
           <div className="calendar-wrapper" style={{ marginTop: '2rem' }}>
@@ -401,11 +416,20 @@ export default function AdminPage() {
                             </React.Fragment>
                           );
                         } else {
-                          // Unbooked specific slot
+                          const blockedBooking = globalSchedule.find(b => new Date(b.booking_date).getTime() === s.raw.getTime() && b.status === 'blocked');
+                          const isBlocked = !!blockedBooking;
+                          const isProcessing = blockingSlot === s.raw.toISOString();
                           return (
-                            <div key={idx} style={{ background: '#f8fafc', color: '#64748b', border: '1px dashed #cbd5e1', padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', textAlign: 'center' }}>
+                            <div key={idx} style={{ background: isBlocked ? '#fef2f2' : '#f8fafc', color: isBlocked ? '#b91c1c' : '#64748b', border: isBlocked ? '1px solid #fecaca' : '1px dashed #cbd5e1', padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', textAlign: 'center' }}>
                               <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
-                              <div style={{fontSize:'0.7rem', marginTop:'0.2rem'}}>Available</div>
+                              <div style={{fontSize:'0.7rem', marginTop:'0.2rem'}}>{isBlocked ? 'Blocked' : 'Available'}</div>
+                              <button
+                                onClick={() => handleBlockSlot(s.raw.toISOString(), isBlocked)}
+                                disabled={isProcessing}
+                                style={{ marginTop: '0.3rem', padding: '0.15rem 0.4rem', fontSize: '0.65rem', borderRadius: 3, cursor: 'pointer', border: 'none', background: isBlocked ? '#dc2626' : '#64748b', color: '#fff', width: '100%' }}
+                              >
+                                {isProcessing ? '...' : isBlocked ? 'Unblock' : 'Block'}
+                              </button>
                             </div>
                           );
                         }
