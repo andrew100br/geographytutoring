@@ -192,28 +192,22 @@ exports.handler = async (event, context) => {
 
         if (action === 'block_slot') {
             const { slotIso } = payload;
-            // Use a fixed sentinel UUID as user_id (user_id is NOT NULL in DB).
-            // This UUID will never match a real user profile.
-            const BLOCKED_SENTINEL = '00000000-0000-0000-0000-000000000000';
-            const { error } = await supabase.from('bookings').insert([{
-                user_id: BLOCKED_SENTINEL,
-                booking_date: slotIso,
-                is_monthly: false,
-                is_ten_lessons: false,
-                status: 'blocked'
-            }]);
+            const { error } = await supabase.from('blocked_slots').insert([{ slot_date: slotIso }]);
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
         if (action === 'unblock_slot') {
             const { slotIso } = payload;
-            const { error } = await supabase.from('bookings')
-                .delete()
-                .eq('booking_date', slotIso)
-                .eq('status', 'blocked');
+            const { error } = await supabase.from('blocked_slots').delete().eq('slot_date', slotIso);
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'get_blocked_slots') {
+            const { data, error } = await supabase.from('blocked_slots').select('slot_date').gte('slot_date', new Date().toISOString());
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ blockedSlots: data.map(r => new Date(r.slot_date).toISOString()) }) };
         }
 
         return {

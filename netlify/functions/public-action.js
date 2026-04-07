@@ -72,19 +72,22 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'get_booked_slots') {
-            const { data: bookings, error } = await supabase
-                .from('bookings')
-                .select('booking_date')
-                .in('status', ['confirmed', 'rescheduled', 'blocked'])
-                .gte('booking_date', new Date().toISOString());
+            const now = new Date().toISOString();
+
+            const [{ data: bookings, error }, { data: blocked }] = await Promise.all([
+                supabase.from('bookings').select('booking_date').in('status', ['confirmed', 'rescheduled']).gte('booking_date', now),
+                supabase.from('blocked_slots').select('slot_date').gte('slot_date', now)
+            ]);
 
             if (error) throw error;
 
             // Always return UTC ISO strings with Z suffix so browsers in any
             // timezone parse them correctly (raw Supabase values may lack tz info,
             // causing browsers to treat them as local time and mismatching slot checks)
-            const bookedDates = bookings.map(b => new Date(b.booking_date).toISOString());
-            return { statusCode: 200, body: JSON.stringify({ bookedSlots: bookedDates }) };
+            const bookedDates = (bookings || []).map(b => new Date(b.booking_date).toISOString());
+            const blockedDates = (blocked || []).map(b => new Date(b.slot_date).toISOString());
+            const allUnavailable = [...new Set([...bookedDates, ...blockedDates])];
+            return { statusCode: 200, body: JSON.stringify({ bookedSlots: allUnavailable }) };
         }
 
         if (action === 'verify_checkout') {

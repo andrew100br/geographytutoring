@@ -58,6 +58,7 @@ export default function AdminPage() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [revenue, setRevenue] = useState(0);
   const [globalSchedule, setGlobalSchedule] = useState<any[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<number[]>([]); // stored as ms timestamps
   const [loading, setLoading] = useState(false);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const d = new Date();
@@ -150,6 +151,17 @@ export default function AdminPage() {
         setGlobalSchedule(scheduleList);
       }
       setRevenue(actualRevenue);
+
+      // Fetch blocked slots from dedicated table
+      const blockedRes = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_blocked_slots', password })
+      });
+      if (blockedRes.ok) {
+        const blockedData = await blockedRes.json();
+        setBlockedSlots((blockedData.blockedSlots || []).map((d: string) => new Date(d).getTime()));
+      }
     } catch (err: any) {
       console.error(err);
       alert('Failed to load data: ' + err.message);
@@ -230,10 +242,13 @@ export default function AdminPage() {
     try {
       const action = isBlocked ? 'unblock_slot' : 'block_slot';
       const res = await fetch('/.netlify/functions/admin-action', {
-        method: 'POST', body: JSON.stringify({ action, password: adminPass, payload: { slotIso } })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, password: adminPass, payload: { slotIso } })
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed.'); }
-      loadDashboardData(adminPass);
+      const ms = new Date(slotIso).getTime();
+      setBlockedSlots(prev => isBlocked ? prev.filter(t => t !== ms) : [...prev, ms]);
     } catch (err: any) { alert(err.message); }
     setBlockingSlot(null);
   };
@@ -416,8 +431,7 @@ export default function AdminPage() {
                             </React.Fragment>
                           );
                         } else {
-                          const blockedBooking = globalSchedule.find(b => new Date(b.booking_date).getTime() === s.raw.getTime() && b.status === 'blocked');
-                          const isBlocked = !!blockedBooking;
+                          const isBlocked = blockedSlots.includes(s.raw.getTime());
                           const isProcessing = blockingSlot === s.raw.toISOString();
                           return (
                             <div key={idx} style={{ background: isBlocked ? '#fef2f2' : '#f8fafc', color: isBlocked ? '#b91c1c' : '#64748b', border: isBlocked ? '1px solid #fecaca' : '1px dashed #cbd5e1', padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', textAlign: 'center' }}>
