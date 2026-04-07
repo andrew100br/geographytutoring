@@ -192,9 +192,11 @@ exports.handler = async (event, context) => {
 
         if (action === 'block_slot') {
             const { slotIso } = payload;
-            // Insert a placeholder booking with no user_id and status 'blocked'
+            // Use a fixed sentinel UUID as user_id (user_id is NOT NULL in DB).
+            // This UUID will never match a real user profile.
+            const BLOCKED_SENTINEL = '00000000-0000-0000-0000-000000000000';
             const { error } = await supabase.from('bookings').insert([{
-                user_id: null,
+                user_id: BLOCKED_SENTINEL,
                 booking_date: slotIso,
                 is_monthly: false,
                 is_ten_lessons: false,
