@@ -9,7 +9,7 @@ exports.handler = async (event, context) => {
     try {
         const { quantity, userId, userEmail, successUrl, cancelUrl } = JSON.parse(event.body);
 
-        const basePriceGBP = quantity === 10 ? 225 : 25;
+        const basePriceGBP = quantity === 10 ? 270 : 30;
         // Stripe operates in atomic denomination (pence for GBP)
         const unitAmount = Math.round(basePriceGBP * 100);
 

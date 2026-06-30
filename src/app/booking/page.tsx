@@ -6,12 +6,6 @@ import ContactForm from '@/components/ContactForm';
 const THAI_TZ = 'Asia/Bangkok';
 
 // Format for the local timezone label (e.g. "BST", "EDT")
-const localTzAbbr = (() => {
-  try {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date());
-    return parts.find(p => p.type === 'timeZoneName')?.value || '';
-  } catch { return ''; }
-})();
 
 function getThaiDateParts(date: Date) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
@@ -26,24 +20,27 @@ function getThaiDayOfWeek(date: Date) {
   return map[label] ?? new Date(date).getDay();
 }
 
-function generateThaiTimeSlots(baseDateStr: Date) {
+function generateThaiTimeSlots(calendarDay: Date) {
   const schedule: Record<number, string[]> = {
     1: ['17:00'], 2: ['17:00'], 3: ['17:00'],
     4: ['17:00', '18:00'], 5: ['17:00'], 6: [],
     0: ['16:00', '17:00', '18:00']
   };
-  // Use Thailand's day-of-week to pick the schedule, not the client's local day
-  const dayOfWeek = getThaiDayOfWeek(baseDateStr);
+  // Use the LOCAL calendar column's day-of-week so the schedule matches what the
+  // client sees in their column header, not the Thai interpretation of their midnight.
+  const dayOfWeek = calendarDay.getDay();
   const slots: { raw: Date, display: string }[] = [];
 
   if (schedule[dayOfWeek]?.length > 0) {
-    const { year, month, day } = getThaiDateParts(baseDateStr);
+    // Use the LOCAL calendar date's year/month/day so that UTC+8 clients (e.g. HK)
+    // whose midnight lands on the previous Thai date still get the correct slot date.
+    const localYear = calendarDay.getFullYear();
+    const localMonth = String(calendarDay.getMonth() + 1).padStart(2, '0');
+    const localDay = String(calendarDay.getDate()).padStart(2, '0');
     schedule[dayOfWeek].forEach(timeStr => {
-      const isoStr = `${year}-${month}-${day}T${timeStr}:00+07:00`;
+      const isoStr = `${localYear}-${localMonth}-${localDay}T${timeStr}:00+07:00`;
       const raw = new Date(isoStr);
-      // Display in client's local timezone with timezone abbreviation
-      const localTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(raw);
-      const display = localTzAbbr ? `${localTime} ${localTzAbbr}` : localTime;
+      const display = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(raw);
       slots.push({ raw, display });
     });
   }
@@ -78,14 +75,23 @@ export default function BookingPage() {
     return d;
   });
   const [purchaseQty, setPurchaseQty] = useState(1);
-  const PRICE_PER_LESSON = 25;
+  const PRICE_PER_LESSON = 30;
   const [showHistory, setShowHistory] = useState(false);
+
+  // Review State
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [existingReview, setExistingReview] = useState<{ rating: number; review_text: string; reviewer_name: string } | null>(null);
+  const [reviewDone, setReviewDone] = useState(false);
 
   // Booking Modal State
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [bookMonthly, setBookMonthly] = useState(false);
-  const [bookTenLessons, setBookTenLessons] = useState(false);
+  const [bookingType, setBookingType] = useState<'single' | 'monthly' | 'ten'>('single');
   const [currency, setCurrency] = useState('gbp');
+
+  useEffect(() => { setBookingType('single'); }, [selectedDate]);
 
   useEffect(() => {
     checkSession();
@@ -222,6 +228,15 @@ export default function BookingPage() {
       setUpcomingBookings(upcoming);
       setPastBookings(past);
     }
+
+    // Fetch existing review if any
+    const { data: review } = await supabase.from('reviews').select('rating, review_text, reviewer_name').eq('user_id', userId).maybeSingle();
+    if (review) {
+      setExistingReview(review);
+      setReviewRating(review.rating);
+      setReviewText(review.review_text);
+      setReviewDone(true);
+    }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -251,6 +266,28 @@ export default function BookingPage() {
     await supabase.auth.signOut();
     setSession(null);
     setUserProfile(null);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewRating || !reviewText.trim()) return;
+    setReviewSubmitting(true);
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const res = await fetch('/.netlify/functions/submit-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: currentSession?.access_token, rating: reviewRating, reviewText }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setExistingReview({ rating: reviewRating, review_text: reviewText, reviewer_name: data.reviewerName });
+        setReviewDone(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   const handleTopUp = async (qty: number) => {
@@ -297,6 +334,8 @@ export default function BookingPage() {
       return;
     }
 
+    const bookMonthly = bookingType === 'monthly';
+    const bookTenLessons = bookingType === 'ten';
     let requiredCredits = 1;
     let numLessons = 1;
     if (bookMonthly) { requiredCredits = 4; numLessons = 4; }
@@ -356,6 +395,21 @@ export default function BookingPage() {
     alert('Booking successful!');
   };
 
+  // Compute which multi-week options are safe to show (no weekly slot conflict with other bookings)
+  const credits = userProfile?.credits || 0;
+  let showMonthlyOption = false;
+  let showTenOption = false;
+  if (selectedDate) {
+    const monthlyConflict = [1, 2, 3].some(i => {
+      const d = new Date(selectedDate); d.setDate(d.getDate() + i * 7); return allBookedSlots.includes(d.getTime());
+    });
+    const tenConflict = [1, 2, 3, 4, 5, 6, 7, 8, 9].some(i => {
+      const d = new Date(selectedDate); d.setDate(d.getDate() + i * 7); return allBookedSlots.includes(d.getTime());
+    });
+    showMonthlyOption = credits >= 4 && !monthlyConflict;
+    showTenOption = credits >= 10 && !tenConflict;
+  }
+
   if (loading) return <div className="container" style={{ padding: '4rem 0', textAlign:'center' }}>Loading...</div>;
 
   if (!session) {
@@ -381,7 +435,7 @@ export default function BookingPage() {
               )}
               <div className="form-group"><label>Email Address</label><input type="email" required value={email} onChange={e=>setEmail(e.target.value)} /></div>
               <div className="form-group"><label>Password</label><input type="password" required value={password} onChange={e=>setPassword(e.target.value)} /></div>
-              {authStatus && <p style={{ color: '#dc2626', textAlign: 'center', marginBottom:'1rem' }}>{authStatus}</p>}
+              {authStatus && <p style={{ color: authStatus.startsWith('Success') ? '#16a34a' : '#dc2626', textAlign: 'center', marginBottom:'1rem' }}>{authStatus}</p>}
               <button type="submit" className="btn btn-primary btn-full" disabled={isProcessing}>{isProcessing ? 'Processing...' : (isLoginMode ? 'Log In' : 'Create Account')}</button>
             </form>
           </div>
@@ -389,6 +443,10 @@ export default function BookingPage() {
       </main>
     );
   }
+
+  const reviewWordCount = reviewText.trim() === '' ? 0 : reviewText.trim().split(/\s+/).length;
+  const reviewCanSubmit = reviewRating > 0 && reviewWordCount >= 10;
+  const starsDisplay = reviewHover > 0 ? reviewHover : reviewRating;
 
   return (
     <main className="booking-main bg-light">
@@ -449,6 +507,82 @@ export default function BookingPage() {
                 </ul>
               )}
             </div>
+
+            {/* Review Section — shown to all logged-in users for now; restrict after testing */}
+            {session && (
+              <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', marginBottom: '0.75rem' }}>
+                  <i className="ph ph-star" style={{ color: '#f59e0b', fontSize: '1.2rem' }}></i>
+                  {reviewDone ? 'Your Review' : 'Leave a Review'}
+                </h3>
+
+                {reviewDone ? (
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+                    <i className="ph ph-check-circle" style={{ color: '#16a34a', marginRight: '0.4rem' }}></i>
+                    Thank you — your review has been submitted.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+                      Enjoyed your lessons? I would love to hear from you — your feedback helps other families find the right tutor.
+                    </p>
+                    {/* Star picker — Unicode stars, onMouseDown fires before any browser mouseleave */}
+                    <div style={{ display: 'flex', gap: '2px' }} onMouseLeave={() => setReviewHover(0)}>
+                      {[1,2,3,4,5].map(s => (
+                        <span
+                          key={s}
+                          onMouseEnter={() => setReviewHover(s)}
+                          onMouseDown={() => setReviewRating(s)}
+                          style={{
+                            fontSize: '2rem',
+                            lineHeight: 1,
+                            cursor: 'pointer',
+                            color: s <= starsDisplay ? '#f59e0b' : '#94a3b8',
+                            userSelect: 'none',
+                            display: 'inline-block',
+                            padding: '2px 4px',
+                          }}
+                        >★</span>
+                      ))}
+                    </div>
+                    <textarea
+                      value={reviewText}
+                      onChange={e => setReviewText(e.target.value)}
+                      placeholder="Tell us about your experience with Teacher Andrew..."
+                      rows={4}
+                      style={{ width: '100%', maxWidth: 500, padding: '0.65rem 0.9rem', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.9rem', resize: 'vertical', fontFamily: 'inherit' }}
+                    />
+                    {reviewText.length > 0 && reviewWordCount < 10 && (
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
+                        {10 - reviewWordCount} more word{10 - reviewWordCount !== 1 ? 's' : ''} needed
+                      </p>
+                    )}
+                    <button
+                      onClick={() => { if (reviewCanSubmit && !reviewSubmitting) handleSubmitReview(); }}
+                      style={{
+                        width: 'fit-content',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.75rem 1.6rem',
+                        borderRadius: '50px',
+                        border: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.95rem',
+                        fontFamily: 'inherit',
+                        cursor: reviewCanSubmit ? 'pointer' : 'not-allowed',
+                        background: reviewCanSubmit ? '#1e3a5f' : '#cbd5e1',
+                        color: '#fff',
+                        transition: 'background 0.2s',
+                      }}
+                    >
+                      <i className="ph ph-paper-plane-tilt"></i>
+                      {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="calendar-wrapper">
@@ -473,8 +607,7 @@ export default function BookingPage() {
                 dayBookings.forEach(b => {
                    const isoStr = b.date.toISOString();
                    if (!slots.some(s => s.raw.toISOString() === isoStr)) {
-                       const localTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(b.date);
-                       const display = localTzAbbr ? `${localTime} ${localTzAbbr}` : localTime;
+                       const display = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(b.date);
                        slots.push({ raw: b.date, display });
                    }
                 });
@@ -571,7 +704,7 @@ export default function BookingPage() {
               <div className="stat-card" style={{display:'flex', flexDirection:'column', textAlign:'left'}}>
                 <h4 style={{fontSize:'1.1rem', marginBottom:'0.5rem'}}>Pay As You Go</h4>
                 <p className="price" style={{fontSize:'1.5rem', fontWeight:700, color:'var(--primary-color)', marginBottom:'0.5rem'}}>
-                  £25 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ lesson</span>
+                  £30 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ lesson</span>
                 </p>
                 <p className="small-desc" style={{marginBottom:'1.5rem'}}>Need just a few lessons? Buy exact quantities.</p>
                 <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'auto', gap:'1rem'}}>
@@ -588,7 +721,7 @@ export default function BookingPage() {
                 <div className="badge" style={{top:'-10px', right:'-10px', background:'#e0f2fe', color:'#0284c7', position:'absolute', padding:'0.2rem 0.8rem', borderRadius:'15px', fontWeight:700, fontSize:'0.85rem'}}>10% Off</div>
                 <h4 style={{fontSize:'1.1rem', marginBottom:'0.5rem'}}>10-Lesson Bundle</h4>
                 <p className="price" style={{fontSize:'1.5rem', fontWeight:700, color:'var(--primary-color)', marginBottom:'0.5rem'}}>
-                  £225 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ package</span>
+                  £270 <span style={{fontSize:'0.85rem', fontWeight:400, color:'#64748b'}}>/ package</span>
                 </p>
                 <p className="small-desc" style={{marginBottom:'1.5rem'}}>Unlock priority scheduling when you maintain a 10-lesson balance.</p>
                 <button className="btn btn-primary btn-full" onClick={() => handleTopUp(10)} style={{marginTop:'auto'}}>Secure Bundle</button>
@@ -600,28 +733,40 @@ export default function BookingPage() {
             <div className="booking-modal">
               <div className="modal-content">
                 <h3>Confirm Booking</h3>
-                <p>Are you sure you want to book a lesson on:<br/><strong>{new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'}).format(selectedDate)}</strong></p>
-                
-                {userProfile?.credits >= 4 && (
-                  <div className="monthly-booking-option">
+                <p>You are booking a lesson on:<br/><strong>{new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}).format(selectedDate)}</strong></p>
+                <p style={{fontSize:'0.9rem',color:'#64748b',marginBottom:'0.75rem'}}>Select a booking option:</p>
+
+                <div className="monthly-booking-option">
+                  <label className="checkbox-container">
+                    <input type="radio" name="bookingType" checked={bookingType === 'single'} onChange={() => setBookingType('single')} />
+                    <span className="checkmark"></span>
+                    <div className="checkbox-text">
+                      <strong>Secure slot for one lesson</strong>
+                      <span className="cost-badge">1 Credit</span>
+                    </div>
+                  </label>
+                </div>
+
+                {showMonthlyOption && (
+                  <div className="monthly-booking-option" style={{marginTop:10}}>
                     <label className="checkbox-container">
-                      <input type="checkbox" checked={bookMonthly} onChange={e => {setBookMonthly(e.target.checked); if(e.target.checked) setBookTenLessons(false);}} />
+                      <input type="radio" name="bookingType" checked={bookingType === 'monthly'} onChange={() => setBookingType('monthly')} />
                       <span className="checkmark"></span>
                       <div className="checkbox-text">
-                        <strong>Secure slot for 4 weeks</strong>
+                        <strong>Secure slots for 4 weeks</strong>
                         <span className="cost-badge">4 Credits</span>
                       </div>
                     </label>
                   </div>
                 )}
-                
-                {userProfile?.credits >= 10 && (
+
+                {showTenOption && (
                   <div className="monthly-booking-option" style={{marginTop:10}}>
                     <label className="checkbox-container">
-                      <input type="checkbox" checked={bookTenLessons} onChange={e => {setBookTenLessons(e.target.checked); if(e.target.checked) setBookMonthly(false);}} />
+                      <input type="radio" name="bookingType" checked={bookingType === 'ten'} onChange={() => setBookingType('ten')} />
                       <span className="checkmark" style={{borderColor:'var(--accent)'}}></span>
                       <div className="checkbox-text">
-                        <strong>Secure slot for 10 weeks</strong>
+                        <strong>Secure slots for 10 weeks</strong>
                         <span className="cost-badge">10 Credits</span>
                       </div>
                     </label>
@@ -630,7 +775,9 @@ export default function BookingPage() {
 
                 <div className="modal-actions">
                   <button className="btn btn-secondary" onClick={() => setSelectedDate(null)}>Cancel</button>
-                  <button className="btn btn-primary" onClick={confirmBooking}>Confirm Booking ({bookMonthly ? '4' : bookTenLessons ? '10' : '1'} Credit{bookMonthly||bookTenLessons?'s':''})</button>
+                  <button className="btn btn-primary" onClick={confirmBooking}>
+                    Confirm Booking ({bookingType === 'monthly' ? '4' : bookingType === 'ten' ? '10' : '1'} Credit{bookingType !== 'single' ? 's' : ''})
+                  </button>
                 </div>
               </div>
             </div>

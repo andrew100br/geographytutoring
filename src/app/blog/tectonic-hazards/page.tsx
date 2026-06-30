@@ -1,8 +1,22 @@
 import Link from 'next/link';
+import ShareButtons from '@/components/ShareButtons';
 
 export const metadata = {
-  title: 'Understanding Tectonic Hazards - Teacher Andrew',
-  description: 'A deep dive into earthquakes, volcanoes, and tsunamis. Perfect for AQA and Edexcel students looking to master this core topic.',
+  title: 'Understanding Tectonic Hazards: GCSE Geography Guide - Teacher Andrew',
+  description: 'A deep dive into earthquakes, volcanoes, and tsunamis. Perfect for AQA and Edexcel students looking to master this core GCSE Geography topic.',
+  openGraph: {
+    title: 'Understanding Tectonic Hazards: GCSE Geography Guide',
+    description: 'A deep dive into earthquakes, volcanoes, and tsunamis. Perfect for AQA and Edexcel students.',
+    url: 'https://teacherandrewgeo.com/blog/tectonic-hazards',
+    images: [{ url: '/tectonic_hazards.png', width: 1200, height: 630 }],
+    type: 'article',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Understanding Tectonic Hazards: GCSE Geography Guide',
+    description: 'A deep dive into earthquakes, volcanoes, and tsunamis for AQA and Edexcel GCSE Geography.',
+    images: ['/tectonic_hazards.png'],
+  },
 };
 
 export default function TectonicHazardsPost() {
@@ -80,6 +94,11 @@ export default function TectonicHazardsPost() {
             (NEE) like Nepal or Haiti. Being able to compare their differing capacities to respond is crucial
             for top grades.</p>
         </div>
+
+        <ShareButtons
+          url="https://teacherandrewgeo.com/blog/tectonic-hazards"
+          title="Understanding Tectonic Hazards: GCSE Geography Guide"
+        />
       </article>
     </div>
   );

@@ -92,6 +92,27 @@ export default function Home() {
         <div className="blob-bg"></div>
       </section>
 
+      {/* Video Section */}
+      <section className="section bg-light" style={{ paddingBottom: 0 }}>
+        <div className="container">
+          <div className="section-header reveal" style={{ marginBottom: '2rem' }}>
+            <h2>See Geography Come to Life</h2>
+            <p>Watch Teacher Andrew in action — engaging, expert, and built around your child&apos;s success.</p>
+          </div>
+          <div className="video-wrapper reveal">
+            <div className="video-frame">
+              <iframe
+                src="https://player.vimeo.com/video/1185858329?badge=0&autopause=0&player_id=0&app_id=58479"
+                allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+                allowFullScreen
+                title="Teacher Andrew - Geography Tutoring"
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Services Section */}
       <section id="services" className="services section bg-light">
         <div className="container">
@@ -120,7 +141,7 @@ export default function Home() {
             <div className="service-card reveal reveal-delay-1">
               <div className="card-icon"><i className="ph ph-student"></i></div>
               <h3>Pay As You Go</h3>
-              <p className="price">£25 <span>/ session</span></p>
+              <p className="price">£30 <span>/ session</span></p>
               <p className="desc">Flexible, one-off lessons. Perfect for targeted help with specific topics, exam
                 revision, or homework support.</p>
               <ul className="features">
@@ -136,7 +157,7 @@ export default function Home() {
               <div className="badge">10% Off</div>
               <div className="card-icon"><i className="ph ph-stack"></i></div>
               <h3>10-Lesson Package</h3>
-              <p className="price">£225 <span>/ package</span></p>
+              <p className="price">£270 <span>/ package</span></p>
               <p className="desc">Commit to your progress and save! Buy a bundle of 10 lessons upfront and receive
                 a 10% discount on the standard rate.</p>
               <ul className="features">
@@ -185,17 +206,14 @@ export default function Home() {
               <img src="/profile-photo.jpg" alt="Teacher Andrew Profile Photo" />
             </div>
             <div className="experience-badge">
-              <span>Head of Humanities</span>
+              <span>Secondary Geography and History Teacher</span>
               <small>Current Role</small>
             </div>
           </div>
           <div className="about-content reveal reveal-delay">
             <h2>Meet Teacher Andrew</h2>
-            <p>I am a passionate and experienced Geography educator, currently serving as Head of Humanities at
-              an international school in Thailand.</p>
-            <p>My academic background includes a <strong>BA and MA in Environmental Hazards and Disaster
-                Management</strong> from Kingston University, and a <strong>PGCE in Secondary
-                Geography</strong>.</p>
+            <p>I am a passionate and experienced Geography educator, currently teaching secondary geography and history to a wide range of students who are from various countries.</p>
+            <p>My academic background includes a <strong>BSc in Environmental Hazards and Disaster Management</strong> from <strong>Kingston University, London</strong>, a <strong>Masters in Crisis and Disaster Management</strong> from <strong>Portsmouth University</strong>, and a <strong>PGCE in Secondary Geography</strong> from <strong>Brighton University, United Kingdom</strong>.</p>
             <p>I believe that geography is not just about memorizing facts, but understanding the complex
               relationships that shape our world. My lessons focus on active dialogue, critical thinking, and
               equipping students with the skills they need to excel in their exams and become global citizens.

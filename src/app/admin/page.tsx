@@ -75,6 +75,27 @@ export default function AdminPage() {
   const [activeModal, setActiveModal] = useState<'details' | 'reschedule' | 'add' | 'edit' | null>(null);
   const [blockingSlot, setBlockingSlot] = useState<string | null>(null);
 
+  // Newsletter State
+  const [deploying, setDeploying] = useState(false);
+  const [deployResult, setDeployResult] = useState<any | null>(null);
+
+  const handleDeploy = async () => {
+    if (!confirm('This will rebuild and redeploy the website. New blog posts scheduled for this month will go live. Continue?')) return;
+    setDeploying(true); setDeployResult(null);
+    try {
+      const res = await fetch('/.netlify/functions/trigger-deploy', {
+        method: 'POST',
+        body: JSON.stringify({ password: adminPass }),
+      });
+      const data = await res.json();
+      setDeployResult(data);
+    } catch (err: any) {
+      setDeployResult({ error: err.message });
+    } finally {
+      setDeploying(false);
+    }
+  };
+
   // Details Modal State
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userBookings, setUserBookings] = useState<any[]>([]);
@@ -378,10 +399,12 @@ export default function AdminPage() {
                 const day = new Date(currentWeekStart);
                 day.setDate(day.getDate() + i);
                 const slots = generateThaiTimeSlots(day);
-                const isToday = new Date().toDateString() === day.toDateString();
+                const todayThai = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                const dayThai = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(day);
+                const isToday = todayThai === dayThai;
                 
                 // Dynamically inject custom out-of-schedule slots present in the database for this day
-                const dayBookings = globalSchedule.filter(b => new Date(b.booking_date).toDateString() === day.toDateString());
+                const dayBookings = globalSchedule.filter(b => new Date(b.booking_date).toDateString() === day.toDateString() && b.status !== 'cancelled' && b.status !== 'amended');
                 dayBookings.forEach(b => {
                    const localDateObj = new Date(b.booking_date);
                    const isoStr = localDateObj.toISOString();
@@ -393,14 +416,14 @@ export default function AdminPage() {
                 
                 return (
                   <div key={i} className="day-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ textAlign: 'center', padding: '0.5rem', background: isToday ? 'var(--primary-color)' : 'var(--bg-light)', color: isToday ? '#fff' : 'inherit', borderRadius: 4 }}>
+                    <div style={{ textAlign: 'center', padding: '0.5rem', background: 'var(--bg-light)', color: 'inherit', borderRadius: 4, border: isToday ? '2px solid #1e293b' : '2px solid transparent' }}>
                       <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', display: 'block' }}>{new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, weekday:'short' }).format(day)}</span>
-                      <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, day: 'numeric' }).format(day)}</span>
+                      <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>{new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, day: 'numeric' }).format(day)}</span>
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       {slots.length === 0 ? <p style={{ textAlign:'center', color:'#94a3b8', fontSize:'0.9rem' }}>-</p> : slots.map((s, idx) => {
-                        const matchingBookings = globalSchedule.filter(b => new Date(b.booking_date).getTime() === s.raw.getTime());
+                        const matchingBookings = globalSchedule.filter(b => new Date(b.booking_date).getTime() === s.raw.getTime() && b.status !== 'cancelled' && b.status !== 'amended');
                         
                         if (matchingBookings.length > 0) {
                           return (
@@ -471,7 +494,7 @@ export default function AdminPage() {
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Email</th>
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Country</th>
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Credits Balance</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569', textAlign: 'center' }}>Lessons (Active/Past)</th>
+                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569', textAlign: 'center' }}>Lessons (Booked/Completed)</th>
                 <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Actions</th>
               </tr>
             </thead>
@@ -490,14 +513,14 @@ export default function AdminPage() {
                     <td style={{ padding: '1rem', textAlign: 'center' }}>
                       {(() => {
                         const userBookings = globalSchedule.filter(b => b.user_id === p.id);
-                        let active = 0; let past = 0;
+                        let booked = 0; let completed = 0;
                         userBookings.forEach(b => {
                           const bDate = new Date(b.booking_date);
-                          if ((b.status === 'confirmed' || b.status === 'rescheduled') && bDate >= now) active++;
-                          else past++;
+                          if ((b.status === 'confirmed' || b.status === 'rescheduled') && bDate >= now) booked++;
+                          else if (b.status === 'confirmed' && bDate < now) completed++;
                         });
                         return (
-                          <><span style={{ color: '#16a34a', fontWeight:'bold' }}>{active}</span> <span style={{ color: '#cbd5e1', margin: '0 0.2rem' }}>/</span> <span style={{ color: '#64748b' }}>{past}</span></>
+                          <><span style={{ color: '#16a34a', fontWeight:'bold' }}>{booked}</span> <span style={{ color: '#cbd5e1', margin: '0 0.2rem' }}>/</span> <span style={{ color: '#64748b' }}>{completed}</span></>
                         );
                       })()}
                     </td>
@@ -515,6 +538,30 @@ export default function AdminPage() {
               }
             </tbody>
           </table>
+        </div>
+
+        {/* DEPLOY + AUTO NEWSLETTER */}
+        <div style={{ background: '#fff', padding: '2rem', borderRadius: 8, border: '1px solid var(--border-color)', marginTop: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <i className="ph ph-rocket-launch" style={{ fontSize: '1.5rem', color: 'var(--primary-color)' }}></i>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Publish Monthly Blog Post</h2>
+          </div>
+          <p style={{ color: '#64748b', marginBottom: '1.5rem', fontSize: '0.95rem', maxWidth: 560 }}>
+            On the 1st of each month, click this button. It will publish the new blog post to the website <strong>and automatically email all subscribers</strong> with a link to read it. One click — done.
+          </p>
+          <button className="btn btn-primary" onClick={handleDeploy} disabled={deploying} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="ph ph-rocket-launch"></i> {deploying ? 'Publishing & Emailing Subscribers...' : 'Publish Post & Email Subscribers'}
+          </button>
+          {deployResult && (
+            <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: 6, background: deployResult.error ? '#fef2f2' : '#f0fdf4', border: `1px solid ${deployResult.error ? '#fecaca' : '#bbf7d0'}`, color: deployResult.error ? '#dc2626' : '#15803d', fontSize: '0.9rem' }}>
+              {deployResult.error
+                ? `Error: ${deployResult.error}`
+                : (deployResult as any).newsletter
+                  ? `✓ Published! Emailed ${(deployResult as any).sent} subscriber${(deployResult as any).sent !== 1 ? 's' : ''}. The new post will be live on the site in about 60 seconds.`
+                  : `✓ ${(deployResult as any).message || 'Site is rebuilding — new post will be live in about 60 seconds.'}`
+              }
+            </div>
+          )}
         </div>
 
         {/* MODALS */}

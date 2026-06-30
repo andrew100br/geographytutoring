@@ -1,8 +1,22 @@
 import Link from 'next/link';
+import ShareButtons from '@/components/ShareButtons';
 
 export const metadata = {
-  title: 'How to effectively study for GCSE Geography - Teacher Andrew',
-  description: 'Discover proven revision techniques and strategies to confidently tackle your upcoming Geography exams.',
+  title: 'How to Effectively Study for GCSE Geography - Teacher Andrew',
+  description: 'Discover proven revision techniques and strategies to confidently tackle your upcoming Geography exams. Expert tips from a qualified Geography tutor.',
+  openGraph: {
+    title: 'How to Effectively Study for GCSE Geography',
+    description: 'Proven revision techniques and strategies to confidently tackle your upcoming Geography exams.',
+    url: 'https://teacherandrewgeo.com/blog/gcse-study-tips',
+    images: [{ url: '/gcse_study_tips.png', width: 1200, height: 630 }],
+    type: 'article',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'How to Effectively Study for GCSE Geography',
+    description: 'Proven revision techniques and strategies to confidently tackle your Geography exams.',
+    images: ['/gcse_study_tips.png'],
+  },
 };
 
 export default function GcseStudyTipsPost() {
@@ -74,6 +88,11 @@ export default function GcseStudyTipsPost() {
             Remember, consistency is key—start early, revise in short bursts, and practice as many past papers
             as you can get your hands on.</p>
         </div>
+
+        <ShareButtons
+          url="https://teacherandrewgeo.com/blog/gcse-study-tips"
+          title="How to Effectively Study for GCSE Geography"
+        />
       </article>
     </div>
   );

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST https://teacherandrewgeo.com/.netlify/functions/public-action -H 'Content-Type: application/json' -d '{\"action\":\"get_booked_slots\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(git commit -m ':*)",
+      "Bash(curl -s -X POST https://teacherandrewgeo.com/.netlify/functions/create-checkout -H 'Content-Type: application/json' -d '{\"credits\":1,\"userId\":\"test\",\"userEmail\":\"test@test.com\",\"currency\":\"gbp\"}')",
+      "Bash(node -e ':*)",
+      "Bash(curl -s -X POST https://teacherandrewgeo.com/.netlify/functions/create-checkout -H 'Content-Type: application/json' -d '{\"quantity\":1,\"userId\":\"test-user\",\"userEmail\":\"test@test.com\",\"successUrl\":\"https://teacherandrewgeo.com/booking?payment=success\",\"cancelUrl\":\"https://teacherandrewgeo.com/booking?payment=cancel\"}')",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/npx supabase:*)",
+      "Bash(npx netlify:*)",
+      "Bash(wait)",
+      "Bash(npm run *)",
+      "Bash(netlify deploy *)",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/netlify deploy *)",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/netlify env:list)",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/netlify env:list --plain)",
+      "Bash(curl -s -X POST https://teacherandrewgeo.com/.netlify/functions/subscribe -H 'Content-Type: application/json' -d '{\"email\":\"test-verify@example.com\",\"name\":\"Test User\"}')",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/netlify api *)",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/netlify status *)",
+      "WebSearch"
+    ]
+  }
+}
