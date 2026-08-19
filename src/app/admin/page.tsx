@@ -79,12 +79,109 @@ export default function AdminPage() {
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<any | null>(null);
 
+  // Client search/sort state
+  const [clientSearch, setClientSearch] = useState('');
+  const [sortKey, setSortKey] = useState<'child_name' | 'credits' | 'email'>('child_name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [quickCreditLoading, setQuickCreditLoading] = useState<string | null>(null);
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+
+  // Analytics state
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsRange, setAnalyticsRange] = useState<'7d' | '30d' | '1y' | 'all'>('30d');
+
+  // Reviews state
+  const [pendingReviews, setPendingReviews] = useState<any[]>([]);
+  const [approvedReviews, setApprovedReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  // Subscribers state
+  const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [newsletterHistory, setNewsletterHistory] = useState<any[]>([]);
+  const [subscribersLoading, setSubscribersLoading] = useState(false);
+
+  const COUNTRY_NAMES: Record<string, string> = {
+    'GB':'United Kingdom','US':'United States','AU':'Australia','CA':'Canada','IE':'Ireland',
+    'TH':'Thailand','SG':'Singapore','HK':'Hong Kong','MY':'Malaysia','IN':'India',
+    'AE':'UAE','SA':'Saudi Arabia','QA':'Qatar','KW':'Kuwait','BH':'Bahrain','OM':'Oman',
+    'DE':'Germany','FR':'France','NL':'Netherlands','IT':'Italy','ES':'Spain','CH':'Switzerland',
+    'SE':'Sweden','NO':'Norway','DK':'Denmark','BE':'Belgium','AT':'Austria','PL':'Poland',
+    'NZ':'New Zealand','ZA':'South Africa','NG':'Nigeria','KE':'Kenya','GH':'Ghana',
+    'PK':'Pakistan','BD':'Bangladesh','LK':'Sri Lanka','PH':'Philippines','CN':'China',
+    'JP':'Japan','KR':'South Korea','BR':'Brazil','MX':'Mexico','AR':'Argentina',
+  };
+
+  const loadAnalytics = async (range?: '7d' | '30d' | '1y' | 'all') => {
+    const r = range || analyticsRange;
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_analytics', password: adminPass, payload: { range: r } }),
+      });
+      if (res.ok) setAnalytics(await res.json());
+    } catch { /* silent */ }
+    setAnalyticsLoading(false);
+  };
+
+  const loadReviews = async (password: string) => {
+    setReviewsLoading(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_reviews', password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const all = data.reviews || [];
+        setPendingReviews(all.filter((r: any) => !r.approved));
+        setApprovedReviews(all.filter((r: any) => r.approved));
+      }
+    } catch { /* silent */ }
+    setReviewsLoading(false);
+  };
+
+  const loadSubscribers = async (password: string) => {
+    setSubscribersLoading(true);
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_subscribers', password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSubscribers(data.subscribers || []);
+        setNewsletterHistory(data.newsletterHistory || []);
+      }
+    } catch { /* silent */ }
+    setSubscribersLoading(false);
+  };
+
+  const approveReview = async (reviewId: string) => {
+    await fetch('/.netlify/functions/admin-action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve_review', password: adminPass, payload: { reviewId } }),
+    });
+    loadReviews(adminPass);
+  };
+
+  const deleteReview = async (reviewId: string) => {
+    if (!confirm('Delete this review permanently?')) return;
+    await fetch('/.netlify/functions/admin-action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_review', password: adminPass, payload: { reviewId } }),
+    });
+    loadReviews(adminPass);
+  };
+
   const handleDeploy = async () => {
     if (!confirm('This will rebuild and redeploy the website. New blog posts scheduled for this month will go live. Continue?')) return;
     setDeploying(true); setDeployResult(null);
     try {
       const res = await fetch('/.netlify/functions/trigger-deploy', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: adminPass }),
       });
       const data = await res.json();
@@ -124,16 +221,30 @@ export default function AdminPage() {
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminUser.trim().toLowerCase() === MOCK_ADMIN_USER && adminPass) {
+    if (adminUser.trim().toLowerCase() !== MOCK_ADMIN_USER || !adminPass) {
+      setLoginError('Incorrect admin credentials.');
+      return;
+    }
+    setLoginError('Verifying...');
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_dashboard_data', password: adminPass }),
+      });
+      if (!res.ok) {
+        setLoginError('Incorrect password.');
+        setAdminPass('');
+        return;
+      }
       sessionStorage.setItem('admin_logged_in', 'true');
       sessionStorage.setItem('admin_pass', adminPass);
       setIsAdminLoggedIn(true);
       loadDashboardData(adminPass);
-    } else {
-      setLoginError('Incorrect admin credentials.');
-      setAdminPass('');
+    } catch {
+      setLoginError('Could not connect. Try again.');
     }
   };
 
@@ -172,6 +283,9 @@ export default function AdminPage() {
         setGlobalSchedule(scheduleList);
       }
       setRevenue(actualRevenue);
+
+      loadReviews(password);
+      loadSubscribers(password);
 
       // Fetch blocked slots from dedicated table
       const blockedRes = await fetch('/.netlify/functions/admin-action', {
@@ -274,6 +388,25 @@ export default function AdminPage() {
     setBlockingSlot(null);
   };
 
+  const quickAdjustCredits = async (userId: string, currentCredits: number, delta: number) => {
+    const newCredits = Math.max(0, currentCredits + delta);
+    setQuickCreditLoading(userId);
+    try {
+      const profile = profiles.find(p => p.id === userId);
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'edit_user', password: adminPass, payload: {
+          userId, credits: newCredits,
+          parentName: profile?.parent_name || '', childName: profile?.child_name || '', country: profile?.country || ''
+        }}),
+      });
+      if (!res.ok) throw new Error();
+      setProfiles(prev => prev.map(p => p.id === userId ? { ...p, credits: newCredits } : p));
+    } catch { alert('Failed to update credits.'); }
+    setQuickCreditLoading(null);
+  };
+
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAdding(true);
@@ -370,6 +503,127 @@ export default function AdminPage() {
             <p style={{ fontSize: '2.5rem', fontWeight: 700, margin: '0.5rem 0', color: '#16a34a' }}>{loading ? '...' : `£${revenue}`}</p>
             <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>(Calculated from completed lessons)</p>
           </div>
+        </div>
+
+        {/* SITE ANALYTICS */}
+        <div style={{ background: '#fff', padding: '1.5rem 2rem', borderRadius: 8, border: '1px solid var(--border-color)', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.5rem', margin: 0 }}><i className="ph ph-chart-line" style={{ color: 'var(--primary-color)', marginRight: '0.4rem' }}></i>Site Analytics</h2>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>Homepage + booking page visits. Admin page visits are not counted.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              {(['7d', '30d', '1y', 'all'] as const).map(r => (
+                <button key={r} onClick={() => { setAnalyticsRange(r); loadAnalytics(r); }}
+                  style={{ padding: '0.35rem 0.8rem', borderRadius: 6, border: '1px solid', fontSize: '0.82rem', cursor: 'pointer', fontWeight: analyticsRange === r ? 700 : 400,
+                    background: analyticsRange === r ? '#1e3a5f' : '#f8fafc',
+                    color: analyticsRange === r ? '#fff' : '#64748b',
+                    borderColor: analyticsRange === r ? '#1e3a5f' : '#e2e8f0' }}>
+                  {r === '7d' ? '7 Days' : r === '30d' ? '30 Days' : r === '1y' ? '1 Year' : 'All Time'}
+                </button>
+              ))}
+              <button className="btn btn-outline" style={{ fontSize: '0.82rem' }} onClick={() => loadAnalytics()} disabled={analyticsLoading}>
+                <i className="ph ph-arrows-clockwise"></i> {analyticsLoading ? '...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          {!analytics && !analyticsLoading && (
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center', padding: '1rem 0' }}>Click "Load Analytics" to view your site traffic data.</p>
+          )}
+
+          {analyticsLoading && (
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center', padding: '1rem 0' }}>Loading analytics...</p>
+          )}
+
+          {analytics && (
+            <>
+              {/* Summary Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                {[
+                  { label: 'Today', value: analytics.today, color: '#3b82f6', sub: 'visits' },
+                  { label: 'Last 7 Days', value: analytics.thisWeek, color: '#8b5cf6', sub: 'visits' },
+                  { label: 'Last 30 Days', value: analytics.thisMonth, color: '#f59e0b', sub: 'visits' },
+                  { label: 'All Time', value: analytics.allTime, color: '#16a34a', sub: 'visits' },
+                  { label: 'Accounts Created', value: analytics.accountsCreated ?? '—', color: '#0ea5e9', sub: 'total' },
+                  { label: 'Bought Credits', value: analytics.accountsPurchased ?? '—', color: '#ec4899', sub: 'accounts' },
+                ].map(s => (
+                  <div key={s.label} style={{ textAlign: 'center', padding: '1rem', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>{s.label}</p>
+                    <p style={{ margin: 0, fontSize: '2rem', fontWeight: 700, color: s.color }}>{s.value}</p>
+                    <p style={{ margin: '0.1rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>{s.sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* 14-day sparkline */}
+              {analytics.trend && analytics.trend.length > 0 && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
+                    {analyticsRange === '7d' ? 'Daily Visits — Last 7 Days' : analyticsRange === '30d' ? 'Daily Visits — Last 30 Days' : 'Monthly Visits — Last 12 Months'}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: 60 }}>
+                    {(() => {
+                      const max = Math.max(...analytics.trend.map((d: any) => d.count), 1);
+                      return analytics.trend.map((d: any, i: number) => (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }} title={`${d.date}: ${d.count} visits`}>
+                          <div style={{ width: '100%', background: '#1e3a5f', borderRadius: '2px 2px 0 0', height: `${Math.max((d.count / max) * 52, d.count > 0 ? 4 : 1)}px`, opacity: d.count === 0 ? 0.15 : 1 }} />
+                          <span style={{ fontSize: '0.6rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>{d.date.slice(5)}</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                {/* Countries */}
+                <div>
+                  <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Visits by Country <span style={{ fontWeight: 400, color: '#94a3b8' }}>({analyticsRange === '7d' ? 'last 7 days' : analyticsRange === '30d' ? 'last 30 days' : analyticsRange === '1y' ? 'last year' : 'all time'})</span></p>
+                  {analytics.countries.length === 0 ? (
+                    <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>No data yet.</p>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                      <tbody>
+                        {analytics.countries.map((c: any, i: number) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.4rem 0.5rem', color: '#334155' }}>{COUNTRY_NAMES[c.code] || c.code}</td>
+                            <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                <div style={{ background: '#e2e8f0', borderRadius: 4, height: 6, width: 60 }}>
+                                  <div style={{ background: '#1e3a5f', borderRadius: 4, height: 6, width: `${(c.count / analytics.countries[0].count) * 60}px` }} />
+                                </div>
+                                <span style={{ fontWeight: 600, color: '#1e3a5f', minWidth: 24 }}>{c.count}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Top pages */}
+                <div>
+                  <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Top Pages <span style={{ fontWeight: 400, color: '#94a3b8' }}>({analyticsRange === '7d' ? 'last 7 days' : analyticsRange === '30d' ? 'last 30 days' : analyticsRange === '1y' ? 'last year' : 'all time'})</span></p>
+                  {analytics.pages.length === 0 ? (
+                    <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>No data yet.</p>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                      <tbody>
+                        {analytics.pages.map((p: any, i: number) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.4rem 0.5rem', color: '#334155', fontFamily: 'monospace', fontSize: '0.82rem' }}>{p.page}</td>
+                            <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right', fontWeight: 600, color: '#1e3a5f' }}>{p.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* GLOBAL UPCOMING SCHEDULE */}
@@ -480,64 +734,296 @@ export default function AdminPage() {
         </div>
 
         {/* CLIENTS DB */}
-        <div style={{ background: '#fff', padding: '2rem', borderRadius: 8, border: '1px solid var(--border-color)', overflowX: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Client Database</h2>
-            <button className="btn btn-primary" onClick={() => setActiveModal('add')}><i className="ph ph-user-plus"></i> Add New Client</button>
+        <div style={{ background: '#fff', padding: '2rem', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Client Database</h2>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>{profiles.length} total client{profiles.length !== 1 ? 's' : ''}</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={clientSearch}
+                onChange={e => setClientSearch(e.target.value)}
+                style={{ padding: '0.5rem 0.9rem', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.9rem', width: 220 }}
+              />
+              <button className="btn btn-primary" onClick={() => setActiveModal('add')}><i className="ph ph-user-plus"></i> Add New Client</button>
+            </div>
           </div>
-          
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 700 }}>
+
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 900 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid var(--border-color)' }}>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Child Name</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Parent Name</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Email</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Country</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Credits Balance</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569', textAlign: 'center' }}>Lessons (Booked/Completed)</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: '#475569' }}>Actions</th>
+                {([['child_name','Student'], ['email','Email'], ['country','Country'], ['credits','Credits']] as [typeof sortKey, string][]).map(([key, label]) => (
+                  <th key={key} style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#475569', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    onClick={() => { if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('asc'); } }}>
+                    {label} {sortKey === key ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </th>
+                ))}
+                <th style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#475569' }}>Status</th>
+                <th style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#475569', textAlign: 'center' }}>Booked / Done</th>
+                <th style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#475569', textAlign: 'center' }}>Quick Credits</th>
+                <th style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#475569' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {loading ? <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center' }}>Loading clients...</td></tr> :
-                profiles.length === 0 ? <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>No student accounts.</td></tr> :
-                profiles.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '1rem' }}><strong>{p.child_name || 'N/A'}</strong></td>
-                    <td style={{ padding: '1rem' }}>{p.parent_name || 'N/A'}</td>
-                    <td style={{ padding: '1rem', color: '#64748b' }}>{p.email}</td>
-                    <td style={{ padding: '1rem' }}>{p.country || 'N/A'}</td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{ padding: '0.3rem 0.6rem', background: p.credits > 0 ? '#dcfce7' : '#fee2e2', color: p.credits > 0 ? '#16a34a' : '#991b1b', borderRadius: 20, fontSize: '0.85rem', fontWeight: 600 }}>{p.credits || 0} Lessons</span>
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'center' }}>
-                      {(() => {
-                        const userBookings = globalSchedule.filter(b => b.user_id === p.id);
-                        let booked = 0; let completed = 0;
-                        userBookings.forEach(b => {
-                          const bDate = new Date(b.booking_date);
-                          if ((b.status === 'confirmed' || b.status === 'rescheduled') && bDate >= now) booked++;
-                          else if (b.status === 'confirmed' && bDate < now) completed++;
-                        });
-                        return (
-                          <><span style={{ color: '#16a34a', fontWeight:'bold' }}>{booked}</span> <span style={{ color: '#cbd5e1', margin: '0 0.2rem' }}>/</span> <span style={{ color: '#64748b' }}>{completed}</span></>
-                        );
-                      })()}
-                    </td>
-                    <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-outline" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }} onClick={() => openDetails(p)}><i className="ph ph-list-dashes"></i> Details</button>
-                      <button className="btn btn-outline" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem', color: '#0284c7', borderColor: '#bae6fd' }} onClick={() => {
-                          setEditForm({ userId: p.id, parentName: p.parent_name || '', childName: p.child_name || '', country: p.country || '', credits: p.credits || 0 });
-                          setActiveModal('edit');
-                          setEditError('');
-                      }}><i className="ph ph-pencil-simple"></i> Edit</button>
-                      <button className="btn btn-outline" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem', color: '#dc2626', borderColor: '#fca5a5' }} onClick={() => deleteClient(p.id, p.child_name || p.parent_name)}><i className="ph ph-trash"></i> Delete</button>
-                    </td>
-                  </tr>
-                ))
+              {loading ? <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center' }}>Loading clients...</td></tr> :
+                (() => {
+                  const query = clientSearch.toLowerCase();
+                  const filtered = profiles.filter(p =>
+                    !query ||
+                    (p.child_name || '').toLowerCase().includes(query) ||
+                    (p.parent_name || '').toLowerCase().includes(query) ||
+                    (p.email || '').toLowerCase().includes(query)
+                  );
+                  const sorted = [...filtered].sort((a, b) => {
+                    const av = (a[sortKey] ?? '').toString().toLowerCase();
+                    const bv = (b[sortKey] ?? '').toString().toLowerCase();
+                    const n = sortKey === 'credits' ? (Number(a.credits) - Number(b.credits)) : av.localeCompare(bv);
+                    return sortDir === 'asc' ? n : -n;
+                  });
+                  if (sorted.length === 0) return <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>No clients match your search.</td></tr>;
+                  return sorted.map(p => {
+                    const userBkgs = globalSchedule.filter(b => b.user_id === p.id);
+                    let booked = 0, completed = 0;
+                    userBkgs.forEach(b => {
+                      const bDate = new Date(b.booking_date);
+                      if ((b.status === 'confirmed' || b.status === 'rescheduled') && bDate >= now) booked++;
+                      else if (b.status === 'confirmed' && bDate < now) completed++;
+                    });
+                    const hasFuture = booked > 0;
+                    const hasCredits = (p.credits || 0) > 0;
+                    const hasHistory = completed > 0;
+                    let statusLabel = 'Trial / Lead';
+                    let statusStyle: React.CSSProperties = { background: '#fef3c7', color: '#92400e' };
+                    if (hasFuture || hasCredits) { statusLabel = 'Active'; statusStyle = { background: '#dcfce7', color: '#15803d' }; }
+                    else if (hasHistory) { statusLabel = 'Inactive'; statusStyle = { background: '#f1f5f9', color: '#475569' }; }
+                    const isQLoading = quickCreditLoading === p.id;
+                    return (
+                      <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <strong>{p.child_name || 'N/A'}</strong>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{p.parent_name || ''}</div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ color: '#64748b', fontSize: '0.85rem' }}>{p.email}</span>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(p.email); setCopiedEmail(p.id); setTimeout(() => setCopiedEmail(null), 2000); }}
+                              title="Copy email"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedEmail === p.id ? '#16a34a' : '#94a3b8', padding: '0.1rem', lineHeight: 1, fontSize: '0.85rem' }}
+                            >{copiedEmail === p.id ? <i className="ph ph-check"></i> : <i className="ph ph-copy"></i>}</button>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>{p.country || '—'}</td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <span style={{ padding: '0.25rem 0.6rem', background: hasCredits ? '#dcfce7' : '#fee2e2', color: hasCredits ? '#16a34a' : '#991b1b', borderRadius: 20, fontSize: '0.85rem', fontWeight: 700 }}>{p.credits || 0}</span>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: 20, fontSize: '0.8rem', fontWeight: 600, ...statusStyle }}>{statusLabel}</span>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                          <span style={{ color: '#16a34a', fontWeight: 700 }}>{booked}</span>
+                          <span style={{ color: '#cbd5e1', margin: '0 0.3rem' }}>/</span>
+                          <span style={{ color: '#64748b' }}>{completed}</span>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                            <button onClick={() => quickAdjustCredits(p.id, p.credits || 0, -1)} disabled={isQLoading || (p.credits || 0) === 0}
+                              style={{ width: 28, height: 28, borderRadius: 4, border: '1px solid #cbd5e1', background: '#f8fafc', cursor: (p.credits || 0) === 0 ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '1rem', opacity: (p.credits || 0) === 0 ? 0.4 : 1 }}>−</button>
+                            <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 700 }}>{isQLoading ? '…' : (p.credits || 0)}</span>
+                            <button onClick={() => quickAdjustCredits(p.id, p.credits || 0, 1)} disabled={isQLoading}
+                              style={{ width: 28, height: 28, borderRadius: 4, border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}>+</button>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem' }} onClick={() => openDetails(p)} title="View full booking history"><i className="ph ph-list-dashes"></i> Details</button>
+                            <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#0284c7', borderColor: '#bae6fd' }} onClick={() => {
+                                setEditForm({ userId: p.id, parentName: p.parent_name || '', childName: p.child_name || '', country: p.country || '', credits: p.credits || 0 });
+                                setActiveModal('edit'); setEditError('');
+                            }} title="Edit client info"><i className="ph ph-pencil-simple"></i> Edit</button>
+                            <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#dc2626', borderColor: '#fca5a5' }} onClick={() => deleteClient(p.id, p.child_name || p.parent_name)} title="Delete account permanently"><i className="ph ph-trash"></i></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()
               }
             </tbody>
           </table>
+          </div>
+        </div>
+
+        {/* REVIEWS MODERATION */}
+        <div style={{ background: '#fff', padding: '2rem', borderRadius: 8, border: '1px solid var(--border-color)', marginTop: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <i className="ph ph-star" style={{ fontSize: '1.5rem', color: '#f59e0b' }}></i>
+            <div>
+              <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Student Reviews</h2>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>Approve reviews to publish them on the homepage.</p>
+            </div>
+          </div>
+
+          {reviewsLoading ? (
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Loading reviews...</p>
+          ) : (
+            <>
+              {/* Pending */}
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#92400e', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <i className="ph ph-clock"></i> Awaiting Approval
+                {pendingReviews.length > 0 && (
+                  <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.75rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 20 }}>{pendingReviews.length}</span>
+                )}
+              </h3>
+              {pendingReviews.length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>No reviews waiting for approval.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                  {pendingReviews.map((r: any) => (
+                    <div key={r.id} style={{ border: '1px solid #fde68a', borderRadius: 8, padding: '1rem 1.25rem', background: '#fffbeb' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                            <span style={{ fontWeight: 700, color: '#1e293b' }}>{r.reviewer_name}</span>
+                            <span style={{ color: '#f59e0b', fontSize: '1rem', letterSpacing: 1 }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                          </div>
+                          <p style={{ margin: '0 0 0.5rem', color: '#334155', fontSize: '0.9rem', lineHeight: 1.6 }}>"{r.review_text}"</p>
+                          <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{new Date(r.submitted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                          <button className="btn btn-primary" style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => approveReview(r.id)}>
+                            <i className="ph ph-check"></i> Approve
+                          </button>
+                          <button className="btn btn-outline" style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', color: '#dc2626', borderColor: '#fca5a5', display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => deleteReview(r.id)}>
+                            <i className="ph ph-trash"></i> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Approved */}
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#15803d', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <i className="ph ph-check-circle"></i> Published on Website
+                {approvedReviews.length > 0 && (
+                  <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.75rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 20 }}>{approvedReviews.length}</span>
+                )}
+              </h3>
+              {approvedReviews.length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>No reviews published yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {approvedReviews.map((r: any) => (
+                    <div key={r.id} style={{ border: '1px solid #bbf7d0', borderRadius: 8, padding: '0.85rem 1.25rem', background: '#f0fdf4', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                          <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem' }}>{r.reviewer_name}</span>
+                          <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>{'★'.repeat(r.rating)}</span>
+                        </div>
+                        <p style={{ margin: 0, color: '#475569', fontSize: '0.85rem' }}>"{r.review_text.length > 120 ? r.review_text.slice(0, 120) + '…' : r.review_text}"</p>
+                      </div>
+                      <button className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', color: '#dc2626', borderColor: '#fca5a5', flexShrink: 0 }} onClick={() => deleteReview(r.id)}>
+                        <i className="ph ph-trash"></i> Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* SUBSCRIBERS */}
+        <div style={{ background: '#fff', padding: '2rem', borderRadius: 8, border: '1px solid var(--border-color)', marginTop: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <i className="ph ph-envelope-simple" style={{ fontSize: '1.5rem', color: 'var(--primary-color)' }}></i>
+              <div>
+                <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Email Subscribers</h2>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                  Parents who subscribed for monthly study guides. Emails are only accessible here — never exposed publicly.
+                </p>
+              </div>
+            </div>
+            <button className="btn btn-outline" style={{ fontSize: '0.82rem' }} onClick={() => loadSubscribers(adminPass)} disabled={subscribersLoading}>
+              <i className="ph ph-arrows-clockwise"></i> {subscribersLoading ? '...' : 'Refresh'}
+            </button>
+          </div>
+
+          {subscribersLoading ? (
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center', padding: '1rem 0' }}>Loading subscribers...</p>
+          ) : subscribers.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>No subscribers yet.</p>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                      <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#475569', fontWeight: 600 }}>Name</th>
+                      <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#475569', fontWeight: 600 }}>Email</th>
+                      <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#475569', fontWeight: 600 }}>Subscribed</th>
+                      <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#475569', fontWeight: 600 }}>Newsletters Received</th>
+                      <th style={{ padding: '0.75rem 1rem', textAlign: 'left', color: '#475569', fontWeight: 600 }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscribers.map((sub: any, i: number) => {
+                      const subDate = new Date(sub.subscribed_at);
+                      const received = newsletterHistory.filter(nl => new Date(nl.sent_at) >= subDate);
+                      return (
+                        <tr key={sub.id} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                          <td style={{ padding: '0.75rem 1rem', color: '#1e293b', fontWeight: 500 }}>{sub.name || '—'}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#334155', fontFamily: 'monospace', fontSize: '0.85rem' }}>{sub.email}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#64748b' }}>
+                            {subDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#64748b' }}>
+                            {received.length > 0
+                              ? `${received.length} email${received.length !== 1 ? 's' : ''} — last ${new Date(received[0].sent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                              : <span style={{ color: '#cbd5e1' }}>None yet</span>
+                            }
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span style={{ display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: 12, fontSize: '0.78rem', fontWeight: 600, background: sub.active ? '#dcfce7' : '#fee2e2', color: sub.active ? '#16a34a' : '#dc2626' }}>
+                              {sub.active ? 'Active' : 'Unsubscribed'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {newsletterHistory.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#475569', marginBottom: '0.75rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem' }}>
+                    Newsletter Send History
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {newsletterHistory.map((nl: any, i: number) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                          <i className="ph ph-check-circle"></i> {new Date(nl.sent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        <span style={{ color: '#334155', fontSize: '0.9rem', flex: 1 }}>{nl.title || 'Newsletter'}</span>
+                        <span style={{ color: '#64748b', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                          {nl.sent} sent{nl.failed > 0 ? `, ${nl.failed} failed` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* DEPLOY + AUTO NEWSLETTER */}

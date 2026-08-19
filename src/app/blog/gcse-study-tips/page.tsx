@@ -8,14 +8,14 @@ export const metadata = {
     title: 'How to Effectively Study for GCSE Geography',
     description: 'Proven revision techniques and strategies to confidently tackle your upcoming Geography exams.',
     url: 'https://teacherandrewgeo.com/blog/gcse-study-tips',
-    images: [{ url: '/gcse_study_tips.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_exam_study1.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'How to Effectively Study for GCSE Geography',
     description: 'Proven revision techniques and strategies to confidently tackle your Geography exams.',
-    images: ['/gcse_study_tips.png'],
+    images: ['/blog_exam_study1.jpg'],
   },
 };
 
@@ -38,7 +38,7 @@ export default function GcseStudyTipsPost() {
         <div
           className="post-hero-image"
           style={{
-            backgroundImage: 'url(/gcse_study_tips.png)',
+            backgroundImage: 'url(/blog_exam_study1.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}

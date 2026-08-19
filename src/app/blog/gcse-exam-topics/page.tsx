@@ -8,14 +8,14 @@ export const metadata = {
     title: 'Top 5 Geography Topics That Appear Every Year in GCSE Exams',
     description: 'Find out which Geography topics are guaranteed to appear in your GCSE exam every year — and how to score maximum marks on each one.',
     url: 'https://teacherandrewgeo.com/blog/gcse-exam-topics',
-    images: [{ url: '/gcse_study_tips.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_exam_study3.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Top 5 Geography Topics That Appear Every Year in GCSE Exams',
     description: 'The guaranteed GCSE Geography topics and how to score maximum marks on each one.',
-    images: ['/gcse_study_tips.png'],
+    images: ['/blog_exam_study3.jpg'],
   },
 };
 
@@ -35,7 +35,7 @@ export default function GcseExamTopicsPost() {
           <h1 className="post-title">Top 5 Geography Topics That Appear Every Year in GCSE Exams</h1>
         </div>
 
-        <div className="post-hero-image" style={{ backgroundImage: 'url(/gcse_study_tips.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="post-hero-image" style={{ backgroundImage: 'url(/blog_exam_study3.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
         <div className="post-content">
           <p>After 14+ years of teaching GCSE Geography and studying past papers across AQA and Edexcel, there

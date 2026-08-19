@@ -8,14 +8,14 @@ export const metadata = {
     title: 'Climate Change and Your GCSE Geography: Everything You Need to Know',
     description: 'A complete GCSE Geography guide to climate change — causes, effects, and responses. Covering AQA and Edexcel with exam tips.',
     url: 'https://teacherandrewgeo.com/blog/climate-change-gcse',
-    images: [{ url: '/why_geography_matters.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_climate_change.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Climate Change and Your GCSE Geography: Everything You Need to Know',
     description: 'A complete GCSE Geography guide to climate change — causes, effects, and responses.',
-    images: ['/why_geography_matters.png'],
+    images: ['/blog_climate_change.jpg'],
   },
 };
 
@@ -38,7 +38,7 @@ export default function ClimateChangePost() {
         <div
           className="post-hero-image"
           style={{
-            backgroundImage: 'url(/why_geography_matters.png)',
+            backgroundImage: 'url(/blog_climate_change.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}

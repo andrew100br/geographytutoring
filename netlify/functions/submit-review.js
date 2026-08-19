@@ -22,20 +22,6 @@ exports.handler = async (event) => {
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'Not authenticated.' }) };
     }
 
-    // Confirm they have at least one completed lesson (past confirmed booking)
-    const now = new Date().toISOString();
-    const { data: completedLessons } = await supabase
-      .from('bookings')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('status', 'confirmed')
-      .lt('booking_date', now)
-      .limit(1);
-
-    if (!completedLessons || completedLessons.length === 0) {
-      return { statusCode: 403, headers, body: JSON.stringify({ error: 'You need to have completed a lesson before leaving a review.' }) };
-    }
-
     // Get their name from profile
     const { data: profile } = await supabase
       .from('profiles')

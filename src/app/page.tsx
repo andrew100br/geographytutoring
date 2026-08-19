@@ -2,9 +2,17 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import ReviewsSlider from '@/components/ReviewsSlider';
+import WebsiteReviewsSlider from '@/components/WebsiteReviewsSlider';
 import ContactForm from '@/components/ContactForm';
 
 export default function Home() {
+  useEffect(() => {
+    if (!sessionStorage.getItem('visit_tracked')) {
+      fetch('/.netlify/functions/track-visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/' }) }).catch(() => {});
+      sessionStorage.setItem('visit_tracked', '1');
+    }
+  }, []);
+
   useEffect(() => {
     // Scroll Reveal Animations
     const revealElements = document.querySelectorAll('.reveal');
@@ -179,7 +187,10 @@ export default function Home() {
             <p>Over 1,270 lessons taught to students worldwide.</p>
           </div>
 
-          <ReviewsSlider />
+          <div className="reviews-columns">
+            <ReviewsSlider />
+            <WebsiteReviewsSlider />
+          </div>
 
           <div className="stats-row reveal">
             <div className="stat">
@@ -212,7 +223,7 @@ export default function Home() {
           </div>
           <div className="about-content reveal reveal-delay">
             <h2>Meet Teacher Andrew</h2>
-            <p>I am a passionate and experienced Geography educator, currently teaching secondary geography and history to a wide range of students who are from various countries.</p>
+            <p>I am a passionate and experienced Geography educator, currently teaching secondary geography and history in school to a wide range of students.</p>
             <p>My academic background includes a <strong>BSc in Environmental Hazards and Disaster Management</strong> from <strong>Kingston University, London</strong>, a <strong>Masters in Crisis and Disaster Management</strong> from <strong>Portsmouth University</strong>, and a <strong>PGCE in Secondary Geography</strong> from <strong>Brighton University, United Kingdom</strong>.</p>
             <p>I believe that geography is not just about memorizing facts, but understanding the complex
               relationships that shape our world. My lessons focus on active dialogue, critical thinking, and

@@ -8,14 +8,14 @@ export const metadata = {
     title: 'GCSE Geography Fieldwork: What to Expect and How to Prepare',
     description: 'Fieldwork is compulsory at GCSE. Find out what examiners expect, how to write it up, and how to score top marks.',
     url: 'https://teacherandrewgeo.com/blog/gcse-fieldwork-guide',
-    images: [{ url: '/why_geography_matters.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_fieldwork.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'GCSE Geography Fieldwork: What to Expect and How to Prepare',
     description: 'Everything you need to know about GCSE Geography fieldwork — from data collection to top-mark write-ups.',
-    images: ['/why_geography_matters.png'],
+    images: ['/blog_fieldwork.jpg'],
   },
 };
 
@@ -35,7 +35,7 @@ export default function FieldworkGuidePost() {
           <h1 className="post-title">GCSE Geography Fieldwork: What to Expect and How to Prepare</h1>
         </div>
 
-        <div className="post-hero-image" style={{ backgroundImage: 'url(/why_geography_matters.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="post-hero-image" style={{ backgroundImage: 'url(/blog_fieldwork.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
         <div className="post-content">
           <p>Fieldwork is not optional at GCSE — it is a compulsory part of the course for both AQA and

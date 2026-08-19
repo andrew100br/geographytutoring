@@ -59,11 +59,11 @@ export default function ContactForm() {
 
         <div className="form-group">
           <label htmlFor="name">Parent/Student Name</label>
-          <input type="text" id="name" name="name" required placeholder="Tilly Lamai" />
+          <input type="text" id="name" name="name" required placeholder="Sarah Goodwin" />
         </div>
         <div className="form-group">
           <label htmlFor="email">Email Address</label>
-          <input type="email" id="email" name="email" required placeholder="tilly@example.com" />
+          <input type="email" id="email" name="email" required placeholder="sarah@example.com" />
         </div>
         <div className="form-group">
           <label htmlFor="service">Interested Service</label>

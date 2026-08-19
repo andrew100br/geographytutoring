@@ -8,14 +8,14 @@ export const metadata = {
     title: 'How to Write a Perfect Extended Answer: AQA, Edexcel & Cambridge IGCSE',
     description: 'The exact structure and technique to score maximum marks on extended writing — for AQA, Edexcel, and Cambridge IGCSE Geography.',
     url: 'https://teacherandrewgeo.com/blog/how-to-write-9-mark-answer',
-    images: [{ url: '/gcse_study_tips.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_exam_guide.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'How to Write a Perfect Extended Answer: AQA, Edexcel & Cambridge IGCSE',
     description: 'Score maximum marks on extended writing — structure and technique for AQA, Edexcel, and Cambridge IGCSE Geography.',
-    images: ['/gcse_study_tips.png'],
+    images: ['/blog_exam_guide.jpg'],
   },
 };
 
@@ -35,7 +35,7 @@ export default function ExtendedAnswerPost() {
           <h1 className="post-title">How to Write a Perfect Extended Answer: AQA, Edexcel &amp; Cambridge IGCSE</h1>
         </div>
 
-        <div className="post-hero-image" style={{ backgroundImage: 'url(/gcse_study_tips.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="post-hero-image" style={{ backgroundImage: 'url(/blog_exam_guide.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
         <div className="post-content">
           <p>The extended writing question is the highest-value question on every Geography exam — and it is

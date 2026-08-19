@@ -8,14 +8,14 @@ export const metadata = {
     title: 'Urban Issues and Challenges: The Complete GCSE Guide',
     description: 'Master Urban Issues for GCSE Geography — urbanisation, UK cities, LIC/NEE cities, and sustainable living.',
     url: 'https://teacherandrewgeo.com/blog/urban-issues-gcse',
-    images: [{ url: '/hero-globe.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_urban_cities.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Urban Issues and Challenges: The Complete GCSE Guide',
     description: 'Master Urban Issues for GCSE Geography — case studies, processes, and exam technique.',
-    images: ['/hero-globe.png'],
+    images: ['/blog_urban_cities.jpg'],
   },
 };
 
@@ -35,7 +35,7 @@ export default function UrbanIssuesPost() {
           <h1 className="post-title">Urban Issues and Challenges: The Complete GCSE Guide</h1>
         </div>
 
-        <div className="post-hero-image" style={{ backgroundImage: 'url(/hero-globe.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="post-hero-image" style={{ backgroundImage: 'url(/blog_urban_cities.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
         <div className="post-content">
           <p>Urban Issues and Challenges is one of the most mark-rich topics on the AQA GCSE Geography Paper 2.

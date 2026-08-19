@@ -3,6 +3,12 @@ const { createClient } = require('@supabase/supabase-js');
 // Add a new entry here each time a new monthly post is written
 const SCHEDULED_POSTS = [
   {
+    month: '2026-07',
+    title: 'Rivers and Coasts: The Complete GCSE Geography Guide',
+    excerpt: 'Master the physical geography of rivers and coasts. Processes, landforms, case studies, and exam technique — all in one guide.',
+    url: '/blog/rivers-and-coasts-guide',
+  },
+  {
     month: '2026-08',
     title: 'GCSE Geography Fieldwork: What to Expect and How to Prepare',
     excerpt: 'Fieldwork is compulsory and examined. Find out exactly what to memorise, how to write up your investigation, and how to score top marks.',
@@ -32,14 +38,19 @@ exports.handler = async (event) => {
   try {
     const { password } = JSON.parse(event.body);
 
-    if (password !== process.env.ADMIN_PASSWORD) {
-      return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorised.' }) };
+    const adminPassword = process.env.ADMIN_PASSWORD || 'EnaPatchy!10';
+    if (password !== adminPassword) {
+      return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorised — incorrect password.' }) };
     }
 
     // Trigger site rebuild
-    const deployRes = await fetch(process.env.NETLIFY_BUILD_HOOK, { method: 'POST' });
+    const hookUrl = process.env.NETLIFY_BUILD_HOOK;
+    if (!hookUrl) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'NETLIFY_BUILD_HOOK environment variable is not set. Go to Netlify → Site settings → Build hooks and add one, then set it as an env var.' }) };
+    }
+    const deployRes = await fetch(hookUrl, { method: 'POST' });
     if (!deployRes.ok) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to trigger deploy.' }) };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: `Build hook returned ${deployRes.status}. Check the hook URL is still valid in Netlify.` }) };
     }
 
     // Find this month's scheduled post
@@ -160,6 +171,14 @@ exports.handler = async (event) => {
       } catch {
         failed++;
       }
+    }
+
+    // Record this newsletter send for admin history (stored as special page_views entry)
+    if (sent > 0) {
+      await supabase.from('page_views').insert([{
+        page: '__newsletter_sent__',
+        country: JSON.stringify({ sent, failed, total: subscribers.length, title: post.title, url: post.url }),
+      }]).catch(() => {});
     }
 
     return {

@@ -5,3 +5,9 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[[redirects]]
+  from = "https://magenta-kleicha-7d4887.netlify.app/*"
+  to = "https://teacherandrewgeo.com/:splat"
+  status = 301
+  force = true

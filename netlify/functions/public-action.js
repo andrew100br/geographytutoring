@@ -108,6 +108,16 @@ exports.handler = async (event, context) => {
             };
         }
 
+        if (action === 'get_approved_reviews') {
+            const { data, error } = await supabase
+                .from('reviews')
+                .select('reviewer_name, rating, review_text, submitted_at')
+                .eq('approved', true)
+                .order('submitted_at', { ascending: false });
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ reviews: data || [] }) };
+        }
+
         return { statusCode: 400, body: JSON.stringify({ error: 'Unknown public action.' }) };
 
     } catch (error) {

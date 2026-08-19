@@ -8,14 +8,14 @@ export const metadata = {
     title: 'Why Geography Matters More Than Ever',
     description: 'From climate change to geopolitics, understanding our world is crucial. Here\'s why geography is the most relevant subject today.',
     url: 'https://teacherandrewgeo.com/blog/why-geography-matters',
-    images: [{ url: '/why_geography_matters.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_why_geography.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Why Geography Matters More Than Ever',
     description: 'From climate change to geopolitics, here\'s why geography is the most relevant subject today.',
-    images: ['/why_geography_matters.png'],
+    images: ['/blog_why_geography.jpg'],
   },
 };
 
@@ -38,7 +38,7 @@ export default function WhyGeographyMattersPost() {
         <div
           className="post-hero-image"
           style={{
-            backgroundImage: 'url(/why_geography_matters.png)',
+            backgroundImage: 'url(/blog_why_geography.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}

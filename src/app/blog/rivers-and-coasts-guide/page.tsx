@@ -8,14 +8,14 @@ export const metadata = {
     title: 'Rivers and Coasts: The Complete GCSE Geography Guide',
     description: 'Master the physical geography of rivers and coasts for your GCSE. Processes, landforms, case studies, and exam technique.',
     url: 'https://teacherandrewgeo.com/blog/rivers-and-coasts-guide',
-    images: [{ url: '/tectonic_hazards.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_rivers_coasts.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Rivers and Coasts: The Complete GCSE Geography Guide',
     description: 'Master rivers and coasts for your GCSE — processes, landforms, case studies, and exam tips.',
-    images: ['/tectonic_hazards.png'],
+    images: ['/blog_rivers_coasts.jpg'],
   },
 };
 
@@ -35,7 +35,7 @@ export default function RiversAndCoastsPost() {
           <h1 className="post-title">Rivers and Coasts: The Complete GCSE Geography Guide</h1>
         </div>
 
-        <div className="post-hero-image" style={{ backgroundImage: 'url(/tectonic_hazards.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="post-hero-image" style={{ backgroundImage: 'url(/blog_rivers_coasts.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
         <div className="post-content">
           <p>Rivers and coasts together form the backbone of Paper 1 physical geography. Both topics share the

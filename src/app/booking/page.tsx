@@ -60,6 +60,9 @@ export default function BookingPage() {
   const [country, setCountry] = useState('');
   const [authStatus, setAuthStatus] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotStatus, setForgotStatus] = useState('');
 
   // Dashboard State
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -85,6 +88,8 @@ export default function BookingPage() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [existingReview, setExistingReview] = useState<{ rating: number; review_text: string; reviewer_name: string } | null>(null);
   const [reviewDone, setReviewDone] = useState(false);
+  const [reviewFlash, setReviewFlash] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   // Booking Modal State
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -92,6 +97,13 @@ export default function BookingPage() {
   const [currency, setCurrency] = useState('gbp');
 
   useEffect(() => { setBookingType('single'); }, [selectedDate]);
+
+  useEffect(() => {
+    if (!sessionStorage.getItem('visit_tracked')) {
+      fetch('/.netlify/functions/track-visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/booking' }) }).catch(() => {});
+      sessionStorage.setItem('visit_tracked', '1');
+    }
+  }, []);
 
   useEffect(() => {
     checkSession();
@@ -239,6 +251,18 @@ export default function BookingPage() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    setForgotStatus('');
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: 'https://teacherandrewgeo.com/reset-password',
+    });
+    if (error) setForgotStatus(error.message);
+    else setForgotStatus('Success! Check your email for a password reset link.');
+    setIsProcessing(false);
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
@@ -271,6 +295,7 @@ export default function BookingPage() {
   const handleSubmitReview = async () => {
     if (!reviewRating || !reviewText.trim()) return;
     setReviewSubmitting(true);
+    setReviewError('');
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       const res = await fetch('/.netlify/functions/submit-review', {
@@ -282,8 +307,13 @@ export default function BookingPage() {
       if (data.success) {
         setExistingReview({ rating: reviewRating, review_text: reviewText, reviewer_name: data.reviewerName });
         setReviewDone(true);
+        setReviewFlash(true);
+        setTimeout(() => setReviewFlash(false), 3000);
+      } else {
+        setReviewError(data.error || 'Something went wrong. Please try again.');
       }
     } catch (err) {
+      setReviewError('Could not submit review. Please check your connection and try again.');
       console.error(err);
     } finally {
       setReviewSubmitting(false);
@@ -422,22 +452,38 @@ export default function BookingPage() {
               <p>Log in or create a new account to see availability and book.</p>
             </div>
             <div className="auth-tabs">
-              <button type="button" className={`auth-tab ${!isLoginMode ? 'active' : ''}`} onClick={() => setIsLoginMode(false)}>Sign Up</button>
-              <button type="button" className={`auth-tab ${isLoginMode ? 'active' : ''}`} onClick={() => setIsLoginMode(true)}>Log In</button>
+              <button type="button" className={`auth-tab ${!isLoginMode ? 'active' : ''}`} onClick={() => { setIsLoginMode(false); setShowForgotPassword(false); setForgotStatus(''); }}>Sign Up</button>
+              <button type="button" className={`auth-tab ${isLoginMode ? 'active' : ''}`} onClick={() => { setIsLoginMode(true); setShowForgotPassword(false); setForgotStatus(''); }}>Log In</button>
             </div>
-            <form onSubmit={handleAuth} className="booking-form">
-              {!isLoginMode && (
-                <>
-                  <div className="form-group"><label>Parent's Name</label><input type="text" required value={parentName} onChange={e=>setParentName(e.target.value)} /></div>
-                  <div className="form-group"><label>Child's Name</label><input type="text" required value={childName} onChange={e=>setChildName(e.target.value)} /></div>
-                  <div className="form-group"><label>Country</label><input type="text" required value={country} onChange={e=>setCountry(e.target.value)} /></div>
-                </>
-              )}
-              <div className="form-group"><label>Email Address</label><input type="email" required value={email} onChange={e=>setEmail(e.target.value)} /></div>
-              <div className="form-group"><label>Password</label><input type="password" required value={password} onChange={e=>setPassword(e.target.value)} /></div>
-              {authStatus && <p style={{ color: authStatus.startsWith('Success') ? '#16a34a' : '#dc2626', textAlign: 'center', marginBottom:'1rem' }}>{authStatus}</p>}
-              <button type="submit" className="btn btn-primary btn-full" disabled={isProcessing}>{isProcessing ? 'Processing...' : (isLoginMode ? 'Log In' : 'Create Account')}</button>
-            </form>
+
+            {showForgotPassword ? (
+              <form onSubmit={handleForgotPassword} className="booking-form">
+                <p style={{ color: '#64748b', marginBottom: '1rem', fontSize: '0.9rem' }}>Enter your email address and we'll send you a link to reset your password.</p>
+                <div className="form-group"><label>Email Address</label><input type="email" required value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)} /></div>
+                {forgotStatus && <p style={{ color: forgotStatus.startsWith('Success') ? '#16a34a' : '#dc2626', textAlign: 'center', marginBottom:'1rem' }}>{forgotStatus}</p>}
+                <button type="submit" className="btn btn-primary btn-full" disabled={isProcessing}>{isProcessing ? 'Sending...' : 'Send Reset Link'}</button>
+                <button type="button" className="btn btn-outline btn-full" style={{ marginTop: '0.75rem' }} onClick={() => { setShowForgotPassword(false); setForgotStatus(''); }}>Back to Log In</button>
+              </form>
+            ) : (
+              <form onSubmit={handleAuth} className="booking-form">
+                {!isLoginMode && (
+                  <>
+                    <div className="form-group"><label>Parent's Name</label><input type="text" required value={parentName} onChange={e=>setParentName(e.target.value)} /></div>
+                    <div className="form-group"><label>Child's Name</label><input type="text" required value={childName} onChange={e=>setChildName(e.target.value)} /></div>
+                    <div className="form-group"><label>Country</label><input type="text" required value={country} onChange={e=>setCountry(e.target.value)} /></div>
+                  </>
+                )}
+                <div className="form-group"><label>Email Address</label><input type="email" required value={email} onChange={e=>setEmail(e.target.value)} /></div>
+                <div className="form-group"><label>Password</label><input type="password" required value={password} onChange={e=>setPassword(e.target.value)} /></div>
+                {authStatus && <p style={{ color: authStatus.startsWith('Success') ? '#16a34a' : '#dc2626', textAlign: 'center', marginBottom:'1rem' }}>{authStatus}</p>}
+                <button type="submit" className="btn btn-primary btn-full" disabled={isProcessing}>{isProcessing ? 'Processing...' : (isLoginMode ? 'Log In' : 'Create Account')}</button>
+                {isLoginMode && (
+                  <p style={{ textAlign: 'center', marginTop: '0.75rem', marginBottom: 0 }}>
+                    <button type="button" onClick={() => { setShowForgotPassword(true); setForgotEmail(email); setForgotStatus(''); }} style={{ background: 'none', border: 'none', color: '#0284c7', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}>Forgot your password?</button>
+                  </p>
+                )}
+              </form>
+            )}
           </div>
         </div>
       </main>
@@ -508,79 +554,83 @@ export default function BookingPage() {
               )}
             </div>
 
-            {/* Review Section — shown to all logged-in users for now; restrict after testing */}
-            {session && (
+            {/* Review Section */}
+            {session && reviewFlash && (
+              <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+                <p style={{ margin: 0, color: '#16a34a', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <i className="ph ph-check-circle"></i> Review successfully submitted — thank you!
+                </p>
+              </div>
+            )}
+            {session && !reviewDone && (
               <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', marginBottom: '0.75rem' }}>
                   <i className="ph ph-star" style={{ color: '#f59e0b', fontSize: '1.2rem' }}></i>
-                  {reviewDone ? 'Your Review' : 'Leave a Review'}
+                  Leave a Review
                 </h3>
-
-                {reviewDone ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
-                    <i className="ph ph-check-circle" style={{ color: '#16a34a', marginRight: '0.4rem' }}></i>
-                    Thank you — your review has been submitted.
+                    Enjoyed your lessons? I would love to hear from you — your feedback helps other families find the right tutor.
                   </p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
-                      Enjoyed your lessons? I would love to hear from you — your feedback helps other families find the right tutor.
-                    </p>
-                    {/* Star picker — Unicode stars, onMouseDown fires before any browser mouseleave */}
-                    <div style={{ display: 'flex', gap: '2px' }} onMouseLeave={() => setReviewHover(0)}>
-                      {[1,2,3,4,5].map(s => (
-                        <span
-                          key={s}
-                          onMouseEnter={() => setReviewHover(s)}
-                          onMouseDown={() => setReviewRating(s)}
-                          style={{
-                            fontSize: '2rem',
-                            lineHeight: 1,
-                            cursor: 'pointer',
-                            color: s <= starsDisplay ? '#f59e0b' : '#94a3b8',
-                            userSelect: 'none',
-                            display: 'inline-block',
-                            padding: '2px 4px',
-                          }}
-                        >★</span>
-                      ))}
-                    </div>
-                    <textarea
-                      value={reviewText}
-                      onChange={e => setReviewText(e.target.value)}
-                      placeholder="Tell us about your experience with Teacher Andrew..."
-                      rows={4}
-                      style={{ width: '100%', maxWidth: 500, padding: '0.65rem 0.9rem', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.9rem', resize: 'vertical', fontFamily: 'inherit' }}
-                    />
-                    {reviewText.length > 0 && reviewWordCount < 10 && (
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
-                        {10 - reviewWordCount} more word{10 - reviewWordCount !== 1 ? 's' : ''} needed
-                      </p>
-                    )}
-                    <button
-                      onClick={() => { if (reviewCanSubmit && !reviewSubmitting) handleSubmitReview(); }}
-                      style={{
-                        width: 'fit-content',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.75rem 1.6rem',
-                        borderRadius: '50px',
-                        border: 'none',
-                        fontWeight: 600,
-                        fontSize: '0.95rem',
-                        fontFamily: 'inherit',
-                        cursor: reviewCanSubmit ? 'pointer' : 'not-allowed',
-                        background: reviewCanSubmit ? '#1e3a5f' : '#cbd5e1',
-                        color: '#fff',
-                        transition: 'background 0.2s',
-                      }}
-                    >
-                      <i className="ph ph-paper-plane-tilt"></i>
-                      {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
-                    </button>
+                  {/* Star picker — Unicode stars, onMouseDown fires before any browser mouseleave */}
+                  <div style={{ display: 'flex', gap: '2px' }} onMouseLeave={() => setReviewHover(0)}>
+                    {[1,2,3,4,5].map(s => (
+                      <span
+                        key={s}
+                        onMouseEnter={() => setReviewHover(s)}
+                        onMouseDown={() => setReviewRating(s)}
+                        style={{
+                          fontSize: '2rem',
+                          lineHeight: 1,
+                          cursor: 'pointer',
+                          color: s <= starsDisplay ? '#f59e0b' : '#94a3b8',
+                          userSelect: 'none',
+                          display: 'inline-block',
+                          padding: '2px 4px',
+                        }}
+                      >★</span>
+                    ))}
                   </div>
-                )}
+                  <textarea
+                    value={reviewText}
+                    onChange={e => setReviewText(e.target.value)}
+                    placeholder="Tell us about your experience with Teacher Andrew..."
+                    rows={4}
+                    style={{ width: '100%', maxWidth: 500, padding: '0.65rem 0.9rem', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.9rem', resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                  {reviewText.length > 0 && reviewWordCount < 10 && (
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
+                      {10 - reviewWordCount} more word{10 - reviewWordCount !== 1 ? 's' : ''} needed
+                    </p>
+                  )}
+                  <button
+                    onClick={() => { if (reviewCanSubmit && !reviewSubmitting) handleSubmitReview(); }}
+                    style={{
+                      width: 'fit-content',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1.6rem',
+                      borderRadius: '50px',
+                      border: 'none',
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                      fontFamily: 'inherit',
+                      cursor: reviewCanSubmit ? 'pointer' : 'not-allowed',
+                      background: reviewCanSubmit ? '#1e3a5f' : '#cbd5e1',
+                      color: '#fff',
+                      transition: 'background 0.2s',
+                    }}
+                  >
+                    <i className="ph ph-paper-plane-tilt"></i>
+                    {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                  {reviewError && (
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <i className="ph ph-warning-circle"></i> {reviewError}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>

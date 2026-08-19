@@ -8,14 +8,14 @@ export const metadata = {
     title: 'How to Ace AQA GCSE Geography Paper 2: Human Geography',
     description: 'Your complete guide to AQA GCSE Geography Paper 2. Master urban issues, the changing economic world, and resource management to hit top grades.',
     url: 'https://teacherandrewgeo.com/blog/aqa-paper-2-guide',
-    images: [{ url: '/hero-globe.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_exam_study2.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'How to Ace AQA GCSE Geography Paper 2: Human Geography',
     description: 'Your complete guide to AQA GCSE Geography Paper 2. Master urban issues, the changing economic world, and resource management.',
-    images: ['/hero-globe.png'],
+    images: ['/blog_exam_study2.jpg'],
   },
 };
 
@@ -38,7 +38,7 @@ export default function AqaPaper2Post() {
         <div
           className="post-hero-image"
           style={{
-            backgroundImage: 'url(/hero-globe.png)',
+            backgroundImage: 'url(/blog_exam_study2.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}

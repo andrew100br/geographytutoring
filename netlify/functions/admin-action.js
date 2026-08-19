@@ -204,10 +204,162 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        if (action === 'get_reviews') {
+            const { data, error } = await supabase
+                .from('reviews')
+                .select('id, reviewer_name, rating, review_text, submitted_at, approved')
+                .order('submitted_at', { ascending: false });
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ reviews: data }) };
+        }
+
+        if (action === 'approve_review') {
+            const { reviewId } = payload;
+            const { error } = await supabase.from('reviews').update({ approved: true }).eq('id', reviewId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'delete_review') {
+            const { reviewId } = payload;
+            const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
         if (action === 'get_blocked_slots') {
             const { data, error } = await supabase.from('blocked_slots').select('slot_date').gte('slot_date', new Date().toISOString());
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ blockedSlots: data.map(r => new Date(r.slot_date).toISOString()) }) };
+        }
+
+        if (action === 'get_analytics') {
+            const now = new Date();
+            const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+            const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
+            const monthStart = new Date(now); monthStart.setDate(now.getDate() - 30);
+            const yearStart = new Date(now); yearStart.setFullYear(now.getFullYear() - 1);
+
+            // range controls how far back the breakdown data goes
+            const range = (payload && payload.range) || '30d';
+            const rangeStart = range === '7d' ? weekStart : range === '1y' ? yearStart : range === 'all' ? null : monthStart;
+            const trendDays = range === '7d' ? 7 : range === '1y' ? 30 : 14; // for 1y, show monthly buckets
+
+            let viewsQuery = supabase
+                .from('page_views')
+                .select('page, country, visited_at')
+                .neq('page', '__newsletter_sent__')
+                .order('visited_at', { ascending: false });
+
+            if (rangeStart) viewsQuery = viewsQuery.gte('visited_at', rangeStart.toISOString());
+
+            const { data: allViews, error: viewsError } = await viewsQuery;
+
+            if (viewsError) throw viewsError;
+
+            const { count: totalAll } = await supabase
+                .from('page_views')
+                .select('*', { count: 'exact', head: true })
+                .neq('page', '__newsletter_sent__');
+
+            const views = allViews || [];
+            const todayViews = views.filter(v => new Date(v.visited_at) >= todayStart);
+            const weekViews = views.filter(v => new Date(v.visited_at) >= weekStart);
+
+            // Country breakdown (last 30 days)
+            const countryCounts = {};
+            views.forEach(v => {
+                const c = v.country || 'Unknown';
+                countryCounts[c] = (countryCounts[c] || 0) + 1;
+            });
+            const countries = Object.entries(countryCounts)
+                .map(([code, count]) => ({ code, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 15);
+
+            // Page breakdown (last 30 days)
+            const pageCounts = {};
+            views.forEach(v => { pageCounts[v.page] = (pageCounts[v.page] || 0) + 1; });
+            const pages = Object.entries(pageCounts)
+                .map(([page, count]) => ({ page, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+            // Trend — daily buckets for 7d/30d, monthly buckets for 1y/all
+            const trend = [];
+            if (range === '1y' || range === 'all') {
+                // Monthly buckets for the last 12 months
+                for (let i = 11; i >= 0; i--) {
+                    const d = new Date(now); d.setDate(1); d.setHours(0,0,0,0);
+                    d.setMonth(d.getMonth() - i);
+                    const key = d.toISOString().slice(0, 7); // YYYY-MM
+                    trend.push({ date: key, count: 0 });
+                }
+                views.forEach(v => {
+                    const month = v.visited_at.slice(0, 7);
+                    const bucket = trend.find(t => t.date === month);
+                    if (bucket) bucket.count++;
+                });
+            } else {
+                const days = range === '7d' ? 7 : 30;
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date(now); d.setDate(now.getDate() - i); d.setHours(0,0,0,0);
+                    trend.push({ date: d.toISOString().slice(0, 10), count: 0 });
+                }
+                views.forEach(v => {
+                    const day = v.visited_at.slice(0, 10);
+                    const bucket = trend.find(t => t.date === day);
+                    if (bucket) bucket.count++;
+                });
+            }
+
+            const { count: accountsCreated } = await supabase
+                .from('profiles')
+                .select('*', { count: 'exact', head: true });
+
+            const { data: purchasedUsers } = await supabase
+                .from('bookings')
+                .select('user_id');
+            const accountsPurchased = purchasedUsers
+                ? new Set(purchasedUsers.map(b => b.user_id)).size
+                : 0;
+
+            return { statusCode: 200, body: JSON.stringify({
+                today: todayViews.length,
+                thisWeek: weekViews.length,
+                thisMonth: views.length,
+                allTime: totalAll || 0,
+                countries,
+                pages,
+                trend,
+                accountsCreated: accountsCreated || 0,
+                accountsPurchased,
+            })};
+        }
+
+        if (action === 'get_subscribers') {
+            const { data: subscribers, error: subError } = await supabase
+                .from('subscribers')
+                .select('id, email, name, subscribed_at, active')
+                .order('subscribed_at', { ascending: false });
+            if (subError) throw subError;
+
+            const { data: nlHistory } = await supabase
+                .from('page_views')
+                .select('visited_at, country')
+                .eq('page', '__newsletter_sent__')
+                .order('visited_at', { ascending: false });
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify({
+                    subscribers: subscribers || [],
+                    newsletterHistory: (nlHistory || []).map(r => {
+                        try { return { sent_at: r.visited_at, ...JSON.parse(r.country) }; }
+                        catch { return { sent_at: r.visited_at }; }
+                    }),
+                }),
+            };
         }
 
         return {

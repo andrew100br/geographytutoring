@@ -8,14 +8,14 @@ export const metadata = {
     title: 'The Development Gap: GCSE Geography Complete Guide',
     description: 'Understand global inequality, development indicators, and strategies to close the gap — with GCSE exam technique built in.',
     url: 'https://teacherandrewgeo.com/blog/development-gap-gcse',
-    images: [{ url: '/why_geography_matters.png', width: 1200, height: 630 }],
+    images: [{ url: '/blog_development_gap.jpg', width: 1200, height: 630 }],
     type: 'article',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'The Development Gap: GCSE Geography Complete Guide',
     description: 'Master the development gap topic for GCSE Geography — indicators, causes, and strategies.',
-    images: ['/why_geography_matters.png'],
+    images: ['/blog_development_gap.jpg'],
   },
 };
 
@@ -35,7 +35,7 @@ export default function DevelopmentGapPost() {
           <h1 className="post-title">The Development Gap: GCSE Geography Complete Guide</h1>
         </div>
 
-        <div className="post-hero-image" style={{ backgroundImage: 'url(/why_geography_matters.png)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="post-hero-image" style={{ backgroundImage: 'url(/blog_development_gap.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
         <div className="post-content">
           <p>The development gap — the difference in wealth and quality of life between the world&apos;s richest
