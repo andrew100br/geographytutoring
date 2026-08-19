@@ -78,4 +78,19 @@ async function createCalendarEvent({ summary, description, startISO, endISO }) {
     return res.json();
 }
 
-module.exports = { createCalendarEvent };
+async function deleteCalendarEvent(eventId) {
+    const calendarId = process.env.GOOGLE_CALENDAR_ID;
+    const accessToken = await getAccessToken();
+
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    // 410 = already deleted, treat as success
+    if (!res.ok && res.status !== 404 && res.status !== 410) {
+        throw new Error(`Google Calendar event deletion failed: ${res.status} ${await res.text()}`);
+    }
+}
+
+module.exports = { createCalendarEvent, deleteCalendarEvent };

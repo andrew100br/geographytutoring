@@ -82,7 +82,7 @@ exports.handler = async (event, context) => {
                 status: 'confirmed'
             }));
 
-            const { error: insertError } = await serviceSupabase.from('bookings').insert(rows);
+            const { data: insertedRows, error: insertError } = await serviceSupabase.from('bookings').insert(rows).select('id, booking_date');
             if (insertError) throw insertError;
 
             // Deduct credits
@@ -92,15 +92,16 @@ exports.handler = async (event, context) => {
 
             // Sync to Google Calendar — best-effort, never blocks the booking response
             const studentLabel = [profile?.child_name, profile?.parent_name ? `(${profile.parent_name})` : null].filter(Boolean).join(' ') || user.email;
-            await Promise.allSettled(rows.map(row => {
+            await Promise.allSettled((insertedRows || []).map(async row => {
                 const start = new Date(row.booking_date);
                 const end = new Date(start.getTime() + 60 * 60 * 1000);
-                return createCalendarEvent({
+                const event = await createCalendarEvent({
                     summary: `Geography Lesson - ${studentLabel}`,
                     description: `Booked via website. Student email: ${user.email}`,
                     startISO: start.toISOString(),
                     endISO: end.toISOString()
                 });
+                await serviceSupabase.from('bookings').update({ calendar_event_id: event.id }).eq('id', row.id);
             })).then(results => {
                 results.forEach(r => { if (r.status === 'rejected') console.error('Calendar sync failed:', r.reason); });
             });

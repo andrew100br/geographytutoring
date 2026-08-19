@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { createCalendarEvent, deleteCalendarEvent } = require('./lib/google-calendar');
 
 exports.handler = async (event, context) => {
     // Only allow POST requests
@@ -105,6 +106,13 @@ exports.handler = async (event, context) => {
         if (action === 'cancel_booking') {
             const { bookingId, userId, refund } = payload;
 
+            // Fetch the linked calendar event (if any) before we lose track of it
+            const { data: bookingToCancel } = await supabase
+                .from('bookings')
+                .select('calendar_event_id')
+                .eq('id', bookingId)
+                .single();
+
             // Soft-delete the booking by marking status as cancelled
             const { error: deleteError } = await supabase
                 .from('bookings')
@@ -112,6 +120,14 @@ exports.handler = async (event, context) => {
                 .eq('id', bookingId);
 
             if (deleteError) throw deleteError;
+
+            if (bookingToCancel?.calendar_event_id) {
+                try {
+                    await deleteCalendarEvent(bookingToCancel.calendar_event_id);
+                } catch (err) {
+                    console.error('Calendar event deletion failed:', err);
+                }
+            }
 
             // Refund if needed dynamically from DB
             if (refund) {
@@ -161,9 +177,17 @@ exports.handler = async (event, context) => {
                 .eq('id', bookingId);
             if (updateError) throw updateError;
 
+            if (oldBooking.calendar_event_id) {
+                try {
+                    await deleteCalendarEvent(oldBooking.calendar_event_id);
+                } catch (err) {
+                    console.error('Calendar event deletion failed:', err);
+                }
+            }
+
             // 4. Insert a new booking with the new date, marked as rescheduled so the
             //    student can clearly see their lesson was moved (amber badge on calendar)
-            const { error: insertError } = await supabase
+            const { data: newBookingRow, error: insertError } = await supabase
                 .from('bookings')
                 .insert([{
                     user_id: oldBooking.user_id,
@@ -171,8 +195,26 @@ exports.handler = async (event, context) => {
                     is_monthly: oldBooking.is_monthly,
                     is_ten_lessons: oldBooking.is_ten_lessons,
                     status: 'rescheduled'
-                }]);
+                }])
+                .select('id')
+                .single();
             if (insertError) throw insertError;
+
+            try {
+                const { data: reschedProfile } = await supabase.from('profiles').select('parent_name, child_name, email').eq('id', oldBooking.user_id).single();
+                const studentLabel = [reschedProfile?.child_name, reschedProfile?.parent_name ? `(${reschedProfile.parent_name})` : null].filter(Boolean).join(' ') || reschedProfile?.email || 'Student';
+                const start = new Date(newIsoString);
+                const end = new Date(start.getTime() + 60 * 60 * 1000);
+                const event = await createCalendarEvent({
+                    summary: `Geography Lesson - ${studentLabel}`,
+                    description: `Rescheduled via admin dashboard.`,
+                    startISO: start.toISOString(),
+                    endISO: end.toISOString()
+                });
+                await supabase.from('bookings').update({ calendar_event_id: event.id }).eq('id', newBookingRow.id);
+            } catch (err) {
+                console.error('Calendar event creation failed:', err);
+            }
 
             if (refund && userId) {
                 const { data: profile } = await supabase.from('profiles').select('credits').eq('id', userId).single();
