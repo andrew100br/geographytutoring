@@ -231,6 +231,61 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        if (action === 'admin_book_slot') {
+            const { userId, newIsoString, deductCredit } = payload;
+
+            // Check the slot isn't already taken
+            const { data: conflict } = await supabase
+                .from('bookings')
+                .select('id')
+                .eq('booking_date', newIsoString)
+                .in('status', ['confirmed', 'rescheduled']);
+            if (conflict && conflict.length > 0) {
+                return {
+                    statusCode: 409,
+                    body: JSON.stringify({ error: 'That time slot is already booked. Please choose a different time.' })
+                };
+            }
+
+            const { data: newBookingRow, error: insertError } = await supabase
+                .from('bookings')
+                .insert([{
+                    user_id: userId,
+                    booking_date: newIsoString,
+                    is_monthly: false,
+                    is_ten_lessons: false,
+                    status: 'confirmed'
+                }])
+                .select('id')
+                .single();
+            if (insertError) throw insertError;
+
+            const { data: bookProfile } = await supabase.from('profiles').select('credits, parent_name, child_name, email').eq('id', userId).single();
+
+            let newCredits = bookProfile?.credits || 0;
+            if (deductCredit) {
+                newCredits = Math.max(0, newCredits - 1);
+                await supabase.from('profiles').update({ credits: newCredits }).eq('id', userId);
+            }
+
+            try {
+                const studentLabel = [bookProfile?.child_name, bookProfile?.parent_name ? `(${bookProfile.parent_name})` : null].filter(Boolean).join(' ') || bookProfile?.email || 'Student';
+                const start = new Date(newIsoString);
+                const end = new Date(start.getTime() + 60 * 60 * 1000);
+                const event = await createCalendarEvent({
+                    summary: `Geography Lesson - ${studentLabel}`,
+                    description: 'Booked manually via admin dashboard.',
+                    startISO: start.toISOString(),
+                    endISO: end.toISOString()
+                });
+                await supabase.from('bookings').update({ calendar_event_id: event.id }).eq('id', newBookingRow.id);
+            } catch (err) {
+                console.error('Calendar event creation failed:', err);
+            }
+
+            return { statusCode: 200, body: JSON.stringify({ success: true, newCredits }) };
+        }
+
         if (action === 'block_slot') {
             const { slotIso } = payload;
             const { error } = await supabase.from('blocked_slots').insert([{ slot_date: slotIso }]);

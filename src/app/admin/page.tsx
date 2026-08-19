@@ -72,7 +72,7 @@ export default function AdminPage() {
   const totalCredits = profiles.reduce((sum, p) => sum + (p.credits || 0), 0);
 
   // Modals
-  const [activeModal, setActiveModal] = useState<'details' | 'reschedule' | 'add' | 'edit' | null>(null);
+  const [activeModal, setActiveModal] = useState<'details' | 'reschedule' | 'add' | 'edit' | 'newBooking' | null>(null);
   const [blockingSlot, setBlockingSlot] = useState<string | null>(null);
 
   // Newsletter State
@@ -211,6 +211,10 @@ export default function AdminPage() {
   // Reschedule Modal State
   const [rescheduleData, setRescheduleData] = useState<any>({ bookingId: '', datetime: '', refund: false });
   const [isRescheduling, setIsRescheduling] = useState(false);
+
+  // Manual "Book New Lesson" Modal State
+  const [newBookingData, setNewBookingData] = useState<any>({ datetime: '', deductCredit: true });
+  const [isBookingNew, setIsBookingNew] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('admin_logged_in') === 'true' && sessionStorage.getItem('admin_pass')) {
@@ -370,6 +374,33 @@ export default function AdminPage() {
     const formattedLocal = !isNaN(d.getTime()) ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}` : '';
     setRescheduleData({ bookingId: b.id, datetime: formattedLocal, refund: false });
     setActiveModal('reschedule');
+  };
+
+  const openNewBooking = () => {
+    setNewBookingData({ datetime: '', deductCredit: true });
+    setActiveModal('newBooking');
+  };
+
+  const handleNewBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsBookingNew(true);
+    try {
+      const newIsoString = new Date(newBookingData.datetime).toISOString();
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({
+          action: 'admin_book_slot', password: adminPass,
+          payload: { userId: selectedUser.id, newIsoString, deductCredit: newBookingData.deductCredit }
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to book lesson.');
+      }
+      alert('Lesson booked and added to the calendar!');
+      setActiveModal(null);
+      loadDashboardData(adminPass);
+    } catch (err: any) { alert(err.message || 'Failed to book lesson.'); }
+    setIsBookingNew(false);
   };
 
   const handleBlockSlot = async (slotIso: string, isBlocked: boolean) => {
@@ -1067,7 +1098,10 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <h4 style={{ marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>Full Booking History</h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+                <h4 style={{ margin: 0 }}>Full Booking History</h4>
+                <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={openNewBooking}><i className="ph ph-calendar-plus"></i> Book New Lesson</button>
+              </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1.5rem 0', maxHeight: 300, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
                 {detailsLoading ? <li style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8' }}>Loading bookings...</li> :
                   userBookings.length === 0 ? <li style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8' }}>No bookings found.</li> :
@@ -1126,6 +1160,32 @@ export default function AdminPage() {
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setActiveModal('details')} style={{ flex: 1 }}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={isRescheduling} style={{ flex: 1 }}>{isRescheduling ? '...' : 'Save Re-booking'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {activeModal === 'newBooking' && (
+          <div className="booking-modal" style={{ display: 'flex', zIndex: 10000 }}>
+            <div className="modal-content" style={{ maxWidth: 400 }}>
+              <h3><i className="ph ph-calendar-plus"></i> Book New Lesson</h3>
+              <p>Booking for: {selectedUser?.child_name || selectedUser?.parent_name}<br/>Credits: {selectedUser?.credits || 0}</p>
+              <form onSubmit={handleNewBooking}>
+                <div className="form-group" style={{ textAlign: 'left', marginBottom: '1rem' }}>
+                  <label>Date & Time (Thai Time)</label>
+                  <input type="datetime-local" value={newBookingData.datetime} onChange={e => setNewBookingData({...newBookingData, datetime: e.target.value})} required style={{ width: '100%', padding: '0.8rem', borderRadius: 4, border: '1px solid #cbd5e1' }} />
+                </div>
+                <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+                  <label className="checkbox-container" style={{ fontSize: '0.9rem' }}>
+                    <input type="checkbox" checked={newBookingData.deductCredit} onChange={e => setNewBookingData({...newBookingData, deductCredit: e.target.checked})} />
+                    <span className="checkmark"></span>
+                    <strong>Deduct 1 credit?</strong> (Uncheck to comp this lesson)
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setActiveModal('details')} style={{ flex: 1 }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={isBookingNew} style={{ flex: 1 }}>{isBookingNew ? '...' : 'Confirm Booking'}</button>
                 </div>
               </form>
             </div>
