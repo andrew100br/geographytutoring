@@ -38,8 +38,7 @@ exports.handler = async (event) => {
   try {
     const { password } = JSON.parse(event.body);
 
-    const adminPassword = process.env.ADMIN_PASSWORD || 'EnaPatchy!10';
-    if (password !== adminPassword) {
+    if (password !== process.env.ADMIN_PASSWORD) {
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorised — incorrect password.' }) };
     }
 
