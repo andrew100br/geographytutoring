@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { createCalendarEvent } = require('./lib/google-calendar');
 
 exports.handler = async (event, context) => {
     if (event.httpMethod !== 'POST') {
@@ -85,9 +86,24 @@ exports.handler = async (event, context) => {
             if (insertError) throw insertError;
 
             // Deduct credits
-            const { data: profile } = await serviceSupabase.from('profiles').select('credits').eq('id', user.id).single();
+            const { data: profile } = await serviceSupabase.from('profiles').select('credits, parent_name, child_name').eq('id', user.id).single();
             const newCredits = (profile?.credits || 0) - bookingInserts.length;
             await serviceSupabase.from('profiles').update({ credits: newCredits }).eq('id', user.id);
+
+            // Sync to Google Calendar — best-effort, never blocks the booking response
+            const studentLabel = [profile?.child_name, profile?.parent_name ? `(${profile.parent_name})` : null].filter(Boolean).join(' ') || user.email;
+            await Promise.allSettled(rows.map(row => {
+                const start = new Date(row.booking_date);
+                const end = new Date(start.getTime() + 60 * 60 * 1000);
+                return createCalendarEvent({
+                    summary: `Geography Lesson - ${studentLabel}`,
+                    description: `Booked via website. Student email: ${user.email}`,
+                    startISO: start.toISOString(),
+                    endISO: end.toISOString()
+                });
+            })).then(results => {
+                results.forEach(r => { if (r.status === 'rejected') console.error('Calendar sync failed:', r.reason); });
+            });
 
             return { statusCode: 200, body: JSON.stringify({ success: true, newCredits }) };
         }
