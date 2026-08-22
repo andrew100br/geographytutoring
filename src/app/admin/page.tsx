@@ -84,6 +84,8 @@ export default function AdminPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [quickCreditLoading, setQuickCreditLoading] = useState<string | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState<string | null>(null);
 
   // Analytics state
   const [analytics, setAnalytics] = useState<any>(null);
@@ -486,6 +488,18 @@ export default function AdminPage() {
       alert(`Deleted ${name}'s account.`);
       loadDashboardData(adminPass);
     } catch { alert('Failed to delete client account.'); }
+  };
+
+  const toggleArchived = async (userId: string, isArchived: boolean) => {
+    setArchiveLoading(userId);
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'set_archived', password: adminPass, payload: { userId, isArchived: !isArchived } })
+      });
+      if (!res.ok) throw new Error();
+      setProfiles(prev => prev.map(p => p.id === userId ? { ...p, is_archived: !isArchived } : p));
+    } catch { alert('Failed to update archive status.'); }
+    setArchiveLoading(null);
   };
 
   const cancelBooking = async (bookingId: string, userId: string, name: string, refund: boolean) => {
@@ -942,9 +956,16 @@ export default function AdminPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Client Database</h2>
-              <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>{profiles.length} total client{profiles.length !== 1 ? 's' : ''}</p>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                {profiles.filter(p => !p.is_archived).length} active client{profiles.filter(p => !p.is_archived).length !== 1 ? 's' : ''}
+                {profiles.some(p => p.is_archived) ? ` · ${profiles.filter(p => p.is_archived).length} archived` : ''}
+              </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: '#475569', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />
+                Show archived
+              </label>
               <input
                 type="text"
                 placeholder="Search by name or email..."
@@ -977,10 +998,11 @@ export default function AdminPage() {
                 (() => {
                   const query = clientSearch.toLowerCase();
                   const filtered = profiles.filter(p =>
-                    !query ||
+                    (showArchived || !p.is_archived) &&
+                    (!query ||
                     (p.child_name || '').toLowerCase().includes(query) ||
                     (p.parent_name || '').toLowerCase().includes(query) ||
-                    (p.email || '').toLowerCase().includes(query)
+                    (p.email || '').toLowerCase().includes(query))
                   );
                   const sorted = [...filtered].sort((a, b) => {
                     const av = (a[sortKey] ?? '').toString().toLowerCase();
@@ -1005,10 +1027,12 @@ export default function AdminPage() {
                     if (hasFuture || hasCredits) { statusLabel = 'Active'; statusStyle = { background: '#dcfce7', color: '#15803d' }; }
                     else if (hasHistory) { statusLabel = 'Inactive'; statusStyle = { background: '#f1f5f9', color: '#475569' }; }
                     const isQLoading = quickCreditLoading === p.id;
+                    const isArchiveLoading = archiveLoading === p.id;
                     return (
-                      <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0', opacity: p.is_archived ? 0.55 : 1 }}>
                         <td style={{ padding: '0.85rem 1rem' }}>
                           <strong style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--accent)' }} onClick={() => openDetails(p)} title="View details">{p.child_name || 'N/A'}</strong>
+                          {p.is_archived ? <span style={{ marginLeft: '0.5rem', padding: '0.1rem 0.5rem', background: '#e2e8f0', color: '#475569', borderRadius: 20, fontSize: '0.7rem', fontWeight: 600 }}>Archived</span> : null}
                           <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{p.parent_name || ''}</div>
                         </td>
                         <td style={{ padding: '0.85rem 1rem' }}>
@@ -1049,6 +1073,11 @@ export default function AdminPage() {
                                 setEditForm({ userId: p.id, parentName: p.parent_name || '', childName: p.child_name || '', country: p.country || '', credits: p.credits || 0, isCommittedPackage: !!p.is_committed_package });
                                 setActiveModal('edit'); setEditError('');
                             }} title="Edit client info"><i className="ph ph-pencil-simple"></i> Edit</button>
+                            <button className="btn btn-outline" disabled={isArchiveLoading} style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#64748b', borderColor: '#cbd5e1' }}
+                              onClick={() => toggleArchived(p.id, !!p.is_archived)}
+                              title={p.is_archived ? 'Restore to active client list' : 'Archive this client (hides from default list, does not affect their login, credits, or booking)'}>
+                              <i className={p.is_archived ? 'ph ph-arrow-counter-clockwise' : 'ph ph-archive'}></i> {p.is_archived ? 'Unarchive' : 'Archive'}
+                            </button>
                             <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#dc2626', borderColor: '#fca5a5' }} onClick={() => deleteClient(p.id, p.child_name || p.parent_name)} title="Delete account permanently"><i className="ph ph-trash"></i></button>
                           </div>
                         </td>

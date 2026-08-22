@@ -101,6 +101,13 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        if (action === 'set_archived') {
+            const { userId, isArchived } = payload;
+            const { error } = await supabase.from('profiles').update({ is_archived: !!isArchived }).eq('id', userId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
         if (action === 'send_message') {
             const { userId, content } = payload;
             const { error } = await supabase.from('messages').insert([{
