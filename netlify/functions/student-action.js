@@ -109,6 +109,61 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true, newCredits }) };
         }
 
+        if (action === 'set_cover_note') {
+            const { bookingId, note } = data;
+
+            const serviceSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+            // Ownership check — never let a user edit another student's booking
+            const { data: booking, error: fetchError } = await serviceSupabase
+                .from('bookings').select('id, user_id').eq('id', bookingId).single();
+            if (fetchError) throw fetchError;
+            if (!booking || booking.user_id !== user.id) {
+                return { statusCode: 403, body: JSON.stringify({ error: 'Not your booking.' }) };
+            }
+
+            const { error } = await serviceSupabase.from('bookings').update({ cover_note: note || null }).eq('id', bookingId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'set_notify_prefs') {
+            const { notifyLessonEnabled, notifyEmail, notifyHomeworkEnabled } = data;
+            const serviceSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+            const { error } = await serviceSupabase.from('profiles').update({
+                notify_lesson_enabled: !!notifyLessonEnabled,
+                notify_email: notifyEmail || null,
+                notify_homework_enabled: !!notifyHomeworkEnabled,
+            }).eq('id', user.id);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'upload_homework') {
+            const { homeworkId, fileBase64, fileName } = data;
+            const serviceSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+            // Ownership check
+            const { data: hw, error: fetchError } = await serviceSupabase
+                .from('homework').select('id, user_id').eq('id', homeworkId).single();
+            if (fetchError) throw fetchError;
+            if (!hw || hw.user_id !== user.id) {
+                return { statusCode: 403, body: JSON.stringify({ error: 'Not your homework.' }) };
+            }
+
+            const buffer = Buffer.from(fileBase64, 'base64');
+            const path = `homework-uploads/${Date.now()}-${fileName}`;
+            const { error: uploadError } = await serviceSupabase.storage.from('dashboard-files').upload(path, buffer, { upsert: false });
+            if (uploadError) throw uploadError;
+            const { data: pub } = serviceSupabase.storage.from('dashboard-files').getPublicUrl(path);
+
+            const { error } = await serviceSupabase.from('homework').update({
+                uploaded_file_url: pub.publicUrl, uploaded_at: new Date().toISOString(),
+            }).eq('id', homeworkId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true, url: pub.publicUrl }) };
+        }
+
         return { statusCode: 400, body: JSON.stringify({ error: 'Unknown student action.' }) };
 
     } catch (error) {

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "netlify-dev",
+      "runtimeExecutable": "/Users/andrew1/.nvm/versions/node/v20.20.1/bin/netlify",
+      "runtimeArgs": ["dev"],
+      "port": 8888
+    }
+  ]
+}

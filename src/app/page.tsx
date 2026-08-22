@@ -76,7 +76,7 @@ export default function Home() {
                 Engaging Learning to Exam Excellence</span>
               <span
                 style={{ display: 'block', fontFamily: "'Inter', sans-serif", fontSize: '0.35em', fontStyle: 'italic', fontWeight: 500, color: '#718096', letterSpacing: '0.5px' }}>Pearson
-                Edexcel | Cambridge IGCSE | AQA</span>
+                Edexcel | Cambridge IGCSE &amp; OCR | AQA</span>
             </h1>
             <p className="hero-subtitle">
               Welcome, parents and students! With 14+ years of teaching experience, I help students master
@@ -153,9 +153,10 @@ export default function Home() {
               <p className="desc">Flexible, one-off lessons. Perfect for targeted help with specific topics, exam
                 revision, or homework support.</p>
               <ul className="features">
-                <li><i className="ph ph-check-circle"></i> 50-minute lesson</li>
-                <li><i className="ph ph-check-circle"></i> Custom materials</li>
-                <li><i className="ph ph-check-circle"></i> No commitment</li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Each one-to-one lesson runs for 50 minutes, live over Zoom.">50-minute lesson</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Resources and practice questions tailored to exactly what you're working on.">Custom materials</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Tell me what you'd like to focus on before each lesson, so we can dive straight into it together.">Set &quot;what to cover&quot; in advance</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Book lessons one at a time — no package or ongoing commitment required.">No commitment</span></li>
               </ul>
               <Link href="#contact" className="btn btn-card">Book Session</Link>
             </div>
@@ -164,14 +165,19 @@ export default function Home() {
             <div className="service-card highlight reveal reveal-delay-2">
               <div className="badge">10% Off</div>
               <div className="card-icon"><i className="ph ph-stack"></i></div>
-              <h3>10-Lesson Package</h3>
-              <p className="price">£270 <span>/ package</span></p>
+              <h3>Committed Package</h3>
+              <p className="price">£270 <span>/ 10 lessons</span></p>
               <p className="desc">Commit to your progress and save! Buy a bundle of 10 lessons upfront and receive
                 a 10% discount on the standard rate.</p>
               <ul className="features">
-                <li><i className="ph ph-check-circle"></i> Ten 50-min lessons</li>
-                <li><i className="ph ph-check-circle"></i> Priority scheduling</li>
-                <li><i className="ph ph-check-circle"></i> Access to lesson notes</li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Each one-to-one lesson runs for 50 minutes, live over Zoom — ten of them, upfront.">Ten 50-min lessons</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Resources and practice questions tailored to exactly what you're working on.">Custom materials</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Tell me what you'd like to focus on before each lesson, so we can dive straight into it together.">Set &quot;what to cover&quot; in advance</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="First pick of available lesson slots, including booking the same day and time weekly.">Priority scheduling</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="A PDF snapshot of every lesson, including the work done — so it's neatly recorded and easy to look back on for revision.">Access to lesson notes</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="Optional homework aligned to exactly what we just covered, plus a reminder email the day before it's due.">Access to homework + reminders</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="A short quiz at the end of every lesson, plus real exam questions or a full mock paper when it's the right time — all marked and recorded so you can see exactly how you're doing.">Quiz / Exam score tracking</span></li>
+                <li><i className="ph ph-check-circle"></i> <span className="feature-tip" tabIndex={0} data-tip="A full progress dashboard — attendance streaks, homework and prep rates, quiz score trends, and badges to earn along the way. Helps spot exactly where the gaps are, so revision time goes where it's needed most.">Progress analysis</span></li>
               </ul>
               <Link href="/booking" className="btn btn-primary btn-full">Buy Package</Link>
             </div>

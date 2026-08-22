@@ -37,7 +37,7 @@ export default function PoliciesPage() {
               agreed start time.</li>
           </ul>
 
-          <h2>Cancellation &amp; Rescheduling Policy</h2>
+          <h2 id="cancellation-rescheduling">Cancellation &amp; Rescheduling Policy</h2>
           <p>I understand that life is unpredictable. The following cancellation terms apply:</p>
           <ul>
             <li><strong>Cancellations made more than 24 hours before the lesson:</strong> A full credit

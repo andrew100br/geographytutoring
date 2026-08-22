@@ -70,7 +70,7 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'edit_user') {
-            const { userId, childName, parentName, country, credits } = payload;
+            const { userId, childName, parentName, country, credits, isCommittedPackage } = payload;
             const updateData = {
                 child_name: childName,
                 parent_name: parentName,
@@ -82,12 +82,22 @@ exports.handler = async (event, context) => {
                     updateData.credits = parsedCredits;
                 }
             }
+            if (isCommittedPackage !== undefined) {
+                updateData.is_committed_package = !!isCommittedPackage;
+            }
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update(updateData)
                 .eq('id', userId);
 
             if (updateError) throw updateError;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'set_committed_package') {
+            const { userId, isCommittedPackage } = payload;
+            const { error } = await supabase.from('profiles').update({ is_committed_package: !!isCommittedPackage }).eq('id', userId);
+            if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
@@ -431,6 +441,134 @@ exports.handler = async (event, context) => {
                 accountsCreated: accountsCreated || 0,
                 accountsPurchased,
             })};
+        }
+
+        // ------------------------------------------------------------------
+        // Dashboard redesign — Zoom credentials, exams, lesson notes, quiz
+        // scores, mock exams, homework. All additive; none of this touches
+        // profiles.credits, bookings, or Supabase Auth.
+        // ------------------------------------------------------------------
+
+        if (action === 'set_zoom_credentials') {
+            const { userId, zoomLink, zoomPassword } = payload;
+            const { error } = await supabase
+                .from('profiles')
+                .update({ zoom_link: zoomLink || null, zoom_password: zoomPassword || null })
+                .eq('id', userId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'get_student_data') {
+            const { userId } = payload;
+            const [examsRes, notesRes, quizRes, mocksRes, hwRes] = await Promise.all([
+                supabase.from('student_exams').select('*').eq('user_id', userId).order('exam_date', { ascending: true }),
+                supabase.from('lesson_notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+                supabase.from('quiz_scores').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+                supabase.from('mock_exams').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+                supabase.from('homework').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+            ]);
+            if (examsRes.error) throw examsRes.error;
+            if (notesRes.error) throw notesRes.error;
+            if (quizRes.error) throw quizRes.error;
+            if (mocksRes.error) throw mocksRes.error;
+            if (hwRes.error) throw hwRes.error;
+            return {
+                statusCode: 200,
+                body: JSON.stringify({
+                    exams: examsRes.data,
+                    lessonNotes: notesRes.data,
+                    quizScores: quizRes.data,
+                    mockExams: mocksRes.data,
+                    homework: hwRes.data,
+                }),
+            };
+        }
+
+        if (action === 'add_student_exam') {
+            const { userId, name, examDate } = payload;
+            const { error } = await supabase.from('student_exams').insert([{ user_id: userId, name, exam_date: examDate }]);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'update_student_exam') {
+            const { examId, name, examDate } = payload;
+            const { error } = await supabase.from('student_exams').update({ name, exam_date: examDate }).eq('id', examId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'delete_student_exam') {
+            const { examId } = payload;
+            const { error } = await supabase.from('student_exams').delete().eq('id', examId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        // Shared helper: admin-uploaded files (lesson note PDFs, marked mock
+        // papers) arrive as base64 and get pushed to Supabase Storage here.
+        const uploadAdminFile = async (base64, fileName, folder) => {
+            if (!base64 || !fileName) return null;
+            const buffer = Buffer.from(base64, 'base64');
+            const path = `${folder}/${Date.now()}-${fileName}`;
+            const { error: uploadError } = await supabase.storage.from('dashboard-files').upload(path, buffer, { upsert: false });
+            if (uploadError) throw uploadError;
+            const { data: pub } = supabase.storage.from('dashboard-files').getPublicUrl(path);
+            return pub.publicUrl;
+        };
+
+        if (action === 'add_lesson_note') {
+            const { userId, bookingId, lessonNumber, topic, fileBase64, fileName } = payload;
+            const pdfUrl = await uploadAdminFile(fileBase64, fileName, 'lesson-notes');
+            const { error } = await supabase.from('lesson_notes').insert([{
+                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, topic, pdf_url: pdfUrl,
+            }]);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'add_quiz_score') {
+            const { userId, bookingId, lessonNumber, topic, score, outOf } = payload;
+            const { error } = await supabase.from('quiz_scores').insert([{
+                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, topic: topic || null,
+                score: parseInt(score, 10) || 0, out_of: parseInt(outOf, 10) || 10,
+            }]);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'add_mock_exam') {
+            const { userId, title, info, result, examDate, fileBase64, fileName } = payload;
+            const fileUrl = await uploadAdminFile(fileBase64, fileName, 'mock-exams');
+            const { error } = await supabase.from('mock_exams').insert([{
+                user_id: userId, title, info: info || null, result: result || null, exam_date: examDate || null, file_url: fileUrl,
+            }]);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'delete_mock_exam') {
+            const { mockExamId } = payload;
+            const { error } = await supabase.from('mock_exams').delete().eq('id', mockExamId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'add_homework') {
+            const { userId, bookingId, lessonNumber, dueDate, instructions } = payload;
+            const { error } = await supabase.from('homework').insert([{
+                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, due_date: dueDate || null, instructions: instructions || null,
+            }]);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'mark_booking_missed') {
+            const { bookingId, missed } = payload;
+            const { error } = await supabase.from('bookings').update({ missed: !!missed }).eq('id', bookingId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
         if (action === 'get_subscribers') {

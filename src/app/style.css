@@ -460,6 +460,11 @@ ul {
     font-family: var(--font-body);
 }
 
+.service-card .desc {
+    min-height: 8.2em;
+    /* Keeps the first feature row level across all three cards, however long each blurb is */
+}
+
 .features {
     margin: 1.5rem 0;
     flex-grow: 1;
@@ -476,6 +481,60 @@ ul {
 
 .features li i {
     color: var(--accent);
+}
+
+.feature-tip {
+    position: relative;
+    cursor: help;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: #cbd5e1;
+    text-underline-offset: 3px;
+}
+
+.feature-tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    width: max-content;
+    max-width: 220px;
+    background: var(--text-dark);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 20;
+}
+
+.feature-tip::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--text-dark);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 20;
+}
+
+.feature-tip:hover::after,
+.feature-tip:hover::before,
+.feature-tip:focus::after,
+.feature-tip:focus::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
 /* =========================================

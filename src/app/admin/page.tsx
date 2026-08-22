@@ -45,6 +45,7 @@ function generateThaiTimeSlots(baseDateStr: Date) {
 
 const MOCK_ADMIN_USER = 'admin';
 const LESSON_PRICE = 25;
+const PACKAGE_NAME = 'Committed Package';
 // Only count revenue from bookings on or after this date (go-live date, excludes test data)
 const REVENUE_START_DATE = new Date('2026-04-06T00:00:00Z');
 
@@ -60,11 +61,9 @@ export default function AdminPage() {
   const [globalSchedule, setGlobalSchedule] = useState<any[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<number[]>([]); // stored as ms timestamps
   const [loading, setLoading] = useState(false);
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+  const [currentMonthStart, setCurrentMonthStart] = useState(() => {
     const d = new Date();
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setDate(diff);
+    d.setDate(1);
     d.setHours(0, 0, 0, 0);
     return d;
   });
@@ -198,13 +197,32 @@ export default function AdminPage() {
   const [userBookings, setUserBookings] = useState<any[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
+  // Dashboard redesign — per-student extras (Zoom, exams, notes, quizzes, mocks, homework)
+  const [studentExams, setStudentExams] = useState<any[]>([]);
+  const [lessonNotes, setLessonNotes] = useState<any[]>([]);
+  const [quizScores, setQuizScores] = useState<any[]>([]);
+  const [mockExams, setMockExams] = useState<any[]>([]);
+  const [homeworkList, setHomeworkList] = useState<any[]>([]);
+  const [zoomLink, setZoomLink] = useState('');
+  const [zoomPassword, setZoomPassword] = useState('');
+  const [zoomSaved, setZoomSaved] = useState(false);
+  const [examDraft, setExamDraft] = useState({ name: '', examDate: '' });
+  const [noteFormBookingId, setNoteFormBookingId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState({ topic: '', file: null as File | null });
+  const [quizFormBookingId, setQuizFormBookingId] = useState<string | null>(null);
+  const [quizDraft, setQuizDraft] = useState({ score: '', outOf: '10' });
+  const [mockFormOpen, setMockFormOpen] = useState(false);
+  const [mockDraft, setMockDraft] = useState({ title: '', info: '', result: '', examDate: '', file: null as File | null });
+  const [hwFormOpen, setHwFormOpen] = useState(false);
+  const [hwDraft, setHwDraft] = useState({ dueDate: '', instructions: '' });
+
   // Add Client Modal State
   const [addForm, setAddForm] = useState({ parentName: '', childName: '', email: '', country: '', password: '' });
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState('');
 
   // Edit Client Modal State
-  const [editForm, setEditForm] = useState({ userId: '', parentName: '', childName: '', country: '', credits: 0 });
+  const [editForm, setEditForm] = useState({ userId: '', parentName: '', childName: '', country: '', credits: 0, isCommittedPackage: false });
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -312,13 +330,150 @@ export default function AdminPage() {
     setSelectedUser(user);
     setActiveModal('details');
     setDetailsLoading(true);
+    setZoomLink(user.zoom_link || '');
+    setZoomPassword(user.zoom_password || '');
+    setZoomSaved(false);
+    setNoteFormBookingId(null);
+    setQuizFormBookingId(null);
+    setMockFormOpen(false);
+    setHwFormOpen(false);
     const { data: bookings } = await supabase
       .from('bookings')
       .select('*')
       .eq('user_id', user.id)
       .order('booking_date', { ascending: false });
     setUserBookings(bookings || []);
+
+    // Dashboard-redesign extras — defensive: if the migration hasn't run yet,
+    // this just comes back empty and the rest of the panel still works.
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'get_student_data', password: adminPass, payload: { userId: user.id } }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStudentExams(data.exams || []);
+        setLessonNotes(data.lessonNotes || []);
+        setQuizScores(data.quizScores || []);
+        setMockExams(data.mockExams || []);
+        setHomeworkList(data.homework || []);
+      } else {
+        setStudentExams([]); setLessonNotes([]); setQuizScores([]); setMockExams([]); setHomeworkList([]);
+      }
+    } catch {
+      setStudentExams([]); setLessonNotes([]); setQuizScores([]); setMockExams([]); setHomeworkList([]);
+    }
     setDetailsLoading(false);
+  };
+
+  const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const saveZoomCredentials = async () => {
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'set_zoom_credentials', password: adminPass, payload: { userId: selectedUser.id, zoomLink, zoomPassword } }),
+      });
+      if (!res.ok) throw new Error();
+      setZoomSaved(true);
+    } catch { alert('Failed to save Zoom details.'); }
+  };
+
+  const addStudentExam = async () => {
+    if (!examDraft.name || !examDraft.examDate) return;
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'add_student_exam', password: adminPass, payload: { userId: selectedUser.id, name: examDraft.name, examDate: examDraft.examDate } }),
+      });
+      if (!res.ok) throw new Error();
+      setExamDraft({ name: '', examDate: '' });
+      openDetails(selectedUser);
+    } catch { alert('Failed to add exam.'); }
+  };
+
+  const deleteStudentExam = async (examId: string) => {
+    try {
+      await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'delete_student_exam', password: adminPass, payload: { examId } }),
+      });
+      setStudentExams(prev => prev.filter(e => e.id !== examId));
+    } catch { alert('Failed to remove exam.'); }
+  };
+
+  const saveLessonNote = async (bookingId: string, lessonNumber: number | null) => {
+    try {
+      let fileBase64, fileName;
+      if (noteDraft.file) { fileBase64 = await fileToBase64(noteDraft.file); fileName = noteDraft.file.name; }
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'add_lesson_note', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, topic: noteDraft.topic || 'Untitled Lesson', fileBase64, fileName } }),
+      });
+      if (!res.ok) throw new Error();
+      setNoteFormBookingId(null);
+      setNoteDraft({ topic: '', file: null });
+      openDetails(selectedUser);
+    } catch { alert('Failed to save lesson note.'); }
+  };
+
+  const saveQuizScore = async (bookingId: string, lessonNumber: number | null, topic: string) => {
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'add_quiz_score', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, topic, score: quizDraft.score, outOf: quizDraft.outOf } }),
+      });
+      if (!res.ok) throw new Error();
+      setQuizFormBookingId(null);
+      setQuizDraft({ score: '', outOf: '10' });
+      openDetails(selectedUser);
+    } catch { alert('Failed to save quiz score.'); }
+  };
+
+  const saveMockExam = async () => {
+    if (!mockDraft.title) return;
+    try {
+      let fileBase64, fileName;
+      if (mockDraft.file) { fileBase64 = await fileToBase64(mockDraft.file); fileName = mockDraft.file.name; }
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'add_mock_exam', password: adminPass, payload: { userId: selectedUser.id, title: mockDraft.title, info: mockDraft.info, result: mockDraft.result, examDate: mockDraft.examDate, fileBase64, fileName } }),
+      });
+      if (!res.ok) throw new Error();
+      setMockFormOpen(false);
+      setMockDraft({ title: '', info: '', result: '', examDate: '', file: null });
+      openDetails(selectedUser);
+    } catch { alert('Failed to save mock exam.'); }
+  };
+
+  const deleteMockExam = async (mockExamId: string) => {
+    try {
+      await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'delete_mock_exam', password: adminPass, payload: { mockExamId } }),
+      });
+      setMockExams(prev => prev.filter(m => m.id !== mockExamId));
+    } catch { alert('Failed to remove mock exam.'); }
+  };
+
+  const saveHomework = async (bookingId: string, lessonNumber: number | null) => {
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'add_homework', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions } }),
+      });
+      if (!res.ok) throw new Error();
+      setHwFormOpen(false);
+      setHwDraft({ dueDate: '', instructions: '' });
+      openDetails(selectedUser);
+    } catch { alert('Failed to save homework.'); }
+  };
+
+  const toggleBookingMissed = async (bookingId: string, missed: boolean) => {
+    try {
+      await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'mark_booking_missed', password: adminPass, payload: { bookingId, missed } }),
+      });
+      setUserBookings(prev => prev.map(b => b.id === bookingId ? { ...b, missed } : b));
+    } catch { alert('Failed to update lesson status.'); }
   };
 
   const deleteClient = async (userId: string, name: string) => {
@@ -503,7 +658,9 @@ export default function AdminPage() {
   const now = new Date();
   const futureBookings = userBookings.filter(b => (b.status === 'confirmed' || b.status === 'rescheduled') && new Date(b.booking_date) >= now);
   const hasMonthly = futureBookings.some(b => b.is_monthly);
-  const membershipStatus = hasMonthly ? <span style={{ color: '#16a34a' }}><i className="ph ph-star"></i> Monthly Subscriber</span> : (futureBookings.length > 0 || (selectedUser?.credits || 0) > 0) ? <span>Pay As You Go</span> : <span style={{ color: '#ea580c' }}>Trial / Lead</span>;
+  const membershipStatus = selectedUser?.is_committed_package
+    ? <span style={{ color: 'var(--accent)' }}><i className="ph ph-star"></i> {PACKAGE_NAME} — Active</span>
+    : hasMonthly ? <span style={{ color: '#16a34a' }}><i className="ph ph-star"></i> Monthly Subscriber</span> : (futureBookings.length > 0 || (selectedUser?.credits || 0) > 0) ? <span>Pay As You Go</span> : <span style={{ color: '#ea580c' }}>Trial / Lead</span>;
 
   return (
     <main className="booking-main bg-light" style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
@@ -669,98 +826,114 @@ export default function AdminPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#22c55e', borderRadius: '50%' }}></span> Completed</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#ef4444', borderRadius: '50%' }}></span> Cancelled</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#f59e0b', borderRadius: '50%' }}></span> Old Slot (Rescheduled)</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#b91c1c', borderRadius: '50%' }}></span> Missed</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ display: 'inline-block', width: 12, height: 12, background: '#fecaca', borderRadius: '50%', border: '1px solid #dc2626' }}></span> Blocked</span>
             </div>
           </div>
           <div className="calendar-wrapper" style={{ marginTop: '2rem' }}>
             <div className="calendar-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <button className="btn btn-secondary btn-icon" onClick={() => { const d=new Date(currentWeekStart); d.setDate(d.getDate()-7); setCurrentWeekStart(d); }} style={{ padding: '0.5rem', borderRadius: '50%', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}><i className="ph ph-caret-left"></i></button>
-              <h3 style={{ margin: 0 }}>Week of {new Intl.DateTimeFormat('en-US', {month:'short',year:'numeric'}).format(currentWeekStart)}</h3>
-              <button className="btn btn-secondary btn-icon" onClick={() => { const d=new Date(currentWeekStart); d.setDate(d.getDate()+7); setCurrentWeekStart(d); }} style={{ padding: '0.5rem', borderRadius: '50%', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}><i className="ph ph-caret-right"></i></button>
+              <button className="btn btn-secondary btn-icon" onClick={() => { const d = new Date(currentMonthStart); d.setMonth(d.getMonth() - 1); setCurrentMonthStart(d); }} style={{ padding: '0.5rem', borderRadius: '50%', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}><i className="ph ph-caret-left"></i></button>
+              <h3 style={{ margin: 0 }}>{new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(currentMonthStart)}</h3>
+              <button className="btn btn-secondary btn-icon" onClick={() => { const d = new Date(currentMonthStart); d.setMonth(d.getMonth() + 1); setCurrentMonthStart(d); }} style={{ padding: '0.5rem', borderRadius: '50%', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}><i className="ph ph-caret-right"></i></button>
             </div>
 
-            <div className="days-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem', minWidth: 800, overflowX: 'auto' }}>
-              {Array.from({length:7}).map((_, i) => {
-                const day = new Date(currentWeekStart);
-                day.setDate(day.getDate() + i);
-                const slots = generateThaiTimeSlots(day);
-                const todayThai = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-                const dayThai = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(day);
-                const isToday = todayThai === dayThai;
-                
-                // Dynamically inject custom out-of-schedule slots present in the database for this day
-                const dayBookings = globalSchedule.filter(b => new Date(b.booking_date).toDateString() === day.toDateString() && b.status !== 'cancelled' && b.status !== 'amended');
-                dayBookings.forEach(b => {
-                   const localDateObj = new Date(b.booking_date);
-                   const isoStr = localDateObj.toISOString();
-                   if (!slots.some(s => s.raw.toISOString() === isoStr)) {
-                       slots.push({ raw: localDateObj, display: thaiFormatter.format(localDateObj) });
-                   }
-                });
-                slots.sort((a,b) => a.raw.getTime() - b.raw.getTime());
-                
-                return (
-                  <div key={i} className="day-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ textAlign: 'center', padding: '0.5rem', background: 'var(--bg-light)', color: 'inherit', borderRadius: 4, border: isToday ? '2px solid #1e293b' : '2px solid transparent' }}>
-                      <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', display: 'block' }}>{new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, weekday:'short' }).format(day)}</span>
-                      <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>{new Intl.DateTimeFormat('en-US', { timeZone: THAI_TZ, day: 'numeric' }).format(day)}</span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {slots.length === 0 ? <p style={{ textAlign:'center', color:'#94a3b8', fontSize:'0.9rem' }}>-</p> : slots.map((s, idx) => {
-                        const matchingBookings = globalSchedule.filter(b => new Date(b.booking_date).getTime() === s.raw.getTime() && b.status !== 'cancelled' && b.status !== 'amended');
-                        
-                        if (matchingBookings.length > 0) {
-                          return (
-                            <React.Fragment key={idx}>
-                              {matchingBookings.map((matchBooking, bIdx) => {
-                                const user = profiles.find(p => p.id === matchBooking.user_id) || { child_name: 'Unknown', parent_name: 'Unknown' };
-                                const isFutureActive = new Date(matchBooking.booking_date) >= now && (matchBooking.status === 'confirmed' || matchBooking.status === 'rescheduled');
-                                let badgeBg, badgeColor, statusText;
-                                
-                                if (isFutureActive) {
-                                  badgeBg = '#3b82f6'; badgeColor = '#ffffff'; statusText = 'Confirmed';
-                                } else if (matchBooking.status === 'cancelled') {
-                                  badgeBg = '#ef4444'; badgeColor = '#ffffff'; statusText = 'Cancelled';
-                                } else if (matchBooking.status === 'amended') {
-                                  badgeBg = '#f59e0b'; badgeColor = '#ffffff'; statusText = 'Rescheduled';
-                                } else {
-                                  badgeBg = '#22c55e'; badgeColor = '#ffffff'; statusText = 'Completed';
-                                }
+            {(() => {
+              const year = currentMonthStart.getFullYear();
+              const month = currentMonthStart.getMonth();
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              const firstDow = new Date(year, month, 1).getDay(); // 0=Sun..6=Sat
+              const leadingBlanks = (firstDow + 6) % 7; // Monday-start
+              const todayThai = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-                                return (
-                                  <div key={bIdx} style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeBg}`, padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'center', cursor: 'pointer', marginBottom: bIdx < matchingBookings.length - 1 ? '0.5rem' : 0 }} onClick={() => openDetails(user)}>
-                                    <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
-                                    <span style={{ fontWeight: 600 }}>{user.child_name || user.parent_name}</span>
-                                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', opacity: 1 }}>{statusText}</span>
-                                  </div>
-                                );
-                              })}
-                            </React.Fragment>
-                          );
-                        } else {
-                          const isBlocked = blockedSlots.includes(s.raw.getTime());
-                          const isProcessing = blockingSlot === s.raw.toISOString();
-                          return (
-                            <div key={idx} style={{ background: isBlocked ? '#fef2f2' : '#f8fafc', color: isBlocked ? '#b91c1c' : '#64748b', border: isBlocked ? '1px solid #fecaca' : '1px dashed #cbd5e1', padding: '0.4rem', borderRadius: 4, fontSize: '0.75rem', textAlign: 'center' }}>
-                              <strong style={{fontSize:'0.85rem'}}>{s.display}</strong>
-                              <div style={{fontSize:'0.7rem', marginTop:'0.2rem'}}>{isBlocked ? 'Blocked' : 'Available'}</div>
-                              <button
-                                onClick={() => handleBlockSlot(s.raw.toISOString(), isBlocked)}
-                                disabled={isProcessing}
-                                style={{ marginTop: '0.3rem', padding: '0.15rem 0.4rem', fontSize: '0.65rem', borderRadius: 3, cursor: 'pointer', border: 'none', background: isBlocked ? '#dc2626' : '#64748b', color: '#fff', width: '100%' }}
-                              >
-                                {isProcessing ? '...' : isBlocked ? 'Unblock' : 'Block'}
-                              </button>
-                            </div>
-                          );
-                        }
-                      })}
-                    </div>
+              const cells: (Date | null)[] = [];
+              for (let i = 0; i < leadingBlanks; i++) cells.push(null);
+              for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 6, marginBottom: 6, minWidth: 900 }}>
+                    {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(wd => (
+                      <div key={wd} style={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#64748b', paddingBottom: 4 }}>{wd}</div>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 6, minWidth: 900, overflowX: 'auto' }}>
+                    {cells.map((day, i) => {
+                      if (!day) return <div key={i} style={{ minHeight: 70 }} />;
+                      const slots = generateThaiTimeSlots(day);
+                      const dayThai = new Intl.DateTimeFormat('en-CA', { timeZone: THAI_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(day);
+                      const isToday = todayThai === dayThai;
+
+                      // Dynamically inject custom out-of-schedule slots present in the database for this day
+                      const dayBookings = globalSchedule.filter(b => new Date(b.booking_date).toDateString() === day.toDateString() && b.status !== 'cancelled' && b.status !== 'amended');
+                      dayBookings.forEach(b => {
+                        const localDateObj = new Date(b.booking_date);
+                        const isoStr = localDateObj.toISOString();
+                        if (!slots.some(s => s.raw.toISOString() === isoStr)) {
+                          slots.push({ raw: localDateObj, display: thaiFormatter.format(localDateObj) });
+                        }
+                      });
+                      slots.sort((a, b) => a.raw.getTime() - b.raw.getTime());
+
+                      return (
+                        <div key={i} style={{ minHeight: 70, borderRadius: 8, border: isToday ? '2px solid #1e293b' : '1.5px solid #e2e8f0', background: '#fff', padding: 5, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isToday ? '#1e293b' : '#64748b', padding: '0 2px' }}>{day.getDate()}</span>
+                          {slots.length === 0 && <span style={{ fontSize: '0.65rem', color: '#cbd5e1', padding: '0 2px' }}>—</span>}
+                          {slots.map((s, idx) => {
+                            const matchingBookings = globalSchedule.filter(b => new Date(b.booking_date).getTime() === s.raw.getTime() && b.status !== 'cancelled' && b.status !== 'amended');
+
+                            if (matchingBookings.length > 0) {
+                              return (
+                                <React.Fragment key={idx}>
+                                  {matchingBookings.map((matchBooking, bIdx) => {
+                                    const user = profiles.find(p => p.id === matchBooking.user_id) || { child_name: 'Unknown', parent_name: 'Unknown' };
+                                    const isFutureActive = new Date(matchBooking.booking_date) >= now && (matchBooking.status === 'confirmed' || matchBooking.status === 'rescheduled');
+                                    let badgeBg, badgeColor, statusText;
+
+                                    if (isFutureActive) {
+                                      badgeBg = '#3b82f6'; badgeColor = '#ffffff'; statusText = 'Confirmed';
+                                    } else if (matchBooking.status === 'cancelled') {
+                                      badgeBg = '#ef4444'; badgeColor = '#ffffff'; statusText = 'Cancelled';
+                                    } else if (matchBooking.status === 'amended') {
+                                      badgeBg = '#f59e0b'; badgeColor = '#ffffff'; statusText = 'Rescheduled';
+                                    } else if (matchBooking.missed) {
+                                      badgeBg = '#b91c1c'; badgeColor = '#ffffff'; statusText = 'Missed';
+                                    } else {
+                                      badgeBg = '#22c55e'; badgeColor = '#ffffff'; statusText = 'Completed';
+                                    }
+
+                                    return (
+                                      <div key={bIdx} style={{ background: badgeBg, color: badgeColor, border: `1px solid ${badgeBg}`, padding: '3px 4px', borderRadius: 5, fontSize: '0.65rem', lineHeight: 1.25, cursor: 'pointer' }} onClick={() => openDetails(user)}>
+                                        <div>{s.display}</div>
+                                        <div style={{ fontWeight: 700 }}>{user.child_name || user.parent_name}</div>
+                                      </div>
+                                    );
+                                  })}
+                                </React.Fragment>
+                              );
+                            } else {
+                              const isBlocked = blockedSlots.includes(s.raw.getTime());
+                              const isProcessing = blockingSlot === s.raw.toISOString();
+                              return (
+                                <div key={idx} style={{ background: isBlocked ? '#fef2f2' : '#f8fafc', color: isBlocked ? '#b91c1c' : '#94a3b8', border: isBlocked ? '1px solid #fecaca' : '1px dashed #cbd5e1', padding: '3px 4px', borderRadius: 5, fontSize: '0.65rem', lineHeight: 1.25 }}>
+                                  <div>{s.display} {isBlocked ? 'Blocked' : 'Available'}</div>
+                                  <button
+                                    onClick={() => handleBlockSlot(s.raw.toISOString(), isBlocked)}
+                                    disabled={isProcessing}
+                                    style={{ marginTop: 2, width: '100%', border: 'none', borderRadius: 3, padding: '1px 0', fontSize: '0.6rem', fontWeight: 600, cursor: 'pointer', background: isBlocked ? '#dc2626' : '#64748b', color: '#fff' }}
+                                  >
+                                    {isProcessing ? '...' : isBlocked ? 'Unblock' : 'Block'}
+                                  </button>
+                                </div>
+                              );
+                            }
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -835,7 +1008,7 @@ export default function AdminPage() {
                     return (
                       <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '0.85rem 1rem' }}>
-                          <strong>{p.child_name || 'N/A'}</strong>
+                          <strong style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--accent)' }} onClick={() => openDetails(p)} title="View details">{p.child_name || 'N/A'}</strong>
                           <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{p.parent_name || ''}</div>
                         </td>
                         <td style={{ padding: '0.85rem 1rem' }}>
@@ -873,7 +1046,7 @@ export default function AdminPage() {
                           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                             <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem' }} onClick={() => openDetails(p)} title="View full booking history"><i className="ph ph-list-dashes"></i> Details</button>
                             <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#0284c7', borderColor: '#bae6fd' }} onClick={() => {
-                                setEditForm({ userId: p.id, parentName: p.parent_name || '', childName: p.child_name || '', country: p.country || '', credits: p.credits || 0 });
+                                setEditForm({ userId: p.id, parentName: p.parent_name || '', childName: p.child_name || '', country: p.country || '', credits: p.credits || 0, isCommittedPackage: !!p.is_committed_package });
                                 setActiveModal('edit'); setEditError('');
                             }} title="Edit client info"><i className="ph ph-pencil-simple"></i> Edit</button>
                             <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', color: '#dc2626', borderColor: '#fca5a5' }} onClick={() => deleteClient(p.id, p.child_name || p.parent_name)} title="Delete account permanently"><i className="ph ph-trash"></i></button>
@@ -1084,9 +1257,9 @@ export default function AdminPage() {
         {/* MODALS */}
         {activeModal === 'details' && selectedUser && (
           <div className="booking-modal" style={{ display: 'flex' }}>
-            <div className="modal-content" style={{ maxWidth: 600 }}>
+            <div className="modal-content" style={{ maxWidth: 700, maxHeight: '85vh', overflowY: 'auto', textAlign: 'left' }}>
               <h3 style={{ marginBottom: '1rem' }}><i className="ph ph-user-circle"></i> Details for {selectedUser.child_name || selectedUser.parent_name}</h3>
-              
+
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div style={{ flex: 1, padding: '1rem', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                   <p style={{ margin: '0 0 0.5rem 0', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 1 }}>Membership Status</p>
@@ -1135,7 +1308,275 @@ export default function AdminPage() {
                   })
                 }
               </ul>
-              <button className="btn btn-secondary btn-full" onClick={() => setActiveModal(null)}>Close Data Panel</button>
+
+              {(() => {
+                const now2 = new Date();
+                const pastConfirmedAsc = [...userBookings]
+                  .filter(b => (b.status === 'confirmed' || b.status === 'rescheduled') && new Date(b.booking_date) < now2)
+                  .sort((a, b) => new Date(a.booking_date).getTime() - new Date(b.booking_date).getTime());
+                const lessonNumberFor = (bookingId: string) => {
+                  const idx = pastConfirmedAsc.findIndex(b => b.id === bookingId);
+                  return idx >= 0 ? idx + 1 : null;
+                };
+                const upcomingConfirmed = [...userBookings]
+                  .filter(b => (b.status === 'confirmed' || b.status === 'rescheduled') && new Date(b.booking_date) >= now2)
+                  .sort((a, b) => new Date(a.booking_date).getTime() - new Date(b.booking_date).getTime());
+                const recentPast = [...pastConfirmedAsc].reverse().slice(0, 8);
+
+                const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.7rem', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: '0.9rem', fontFamily: 'inherit' };
+                const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 0.35rem' };
+
+                return (
+                  <>
+                    {/* Zoom Classroom Link */}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+                      <h4 style={{ margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: 8 }}><i className="ph ph-video-camera" style={{ color: 'var(--accent)' }}></i> Zoom Classroom Link</h4>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={labelStyle}>Private link for {selectedUser.child_name}</label>
+                        <input style={inputStyle} value={zoomLink} onChange={e => { setZoomLink(e.target.value); setZoomSaved(false); }} placeholder="https://zoom.us/j/..." />
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '0 0 220px' }}>
+                          <label style={labelStyle}>Zoom Password</label>
+                          <input style={inputStyle} value={zoomPassword} onChange={e => { setZoomPassword(e.target.value); setZoomSaved(false); }} placeholder="e.g. Geo2026!" />
+                        </div>
+                        <button className="btn btn-primary" style={{ padding: '0.55rem 1.1rem', fontSize: '0.85rem' }} onClick={saveZoomCredentials}>Save</button>
+                      </div>
+                      {zoomSaved && <p style={{ fontSize: 12, color: '#15803d', fontWeight: 600, margin: '0.5rem 0 0' }}>Saved.</p>}
+                    </div>
+
+                    {/* Upcoming Tests / Exams */}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+                      <h4 style={{ margin: '0 0 0.75rem' }}>Upcoming Tests / Exams</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                        {studentExams.length === 0 && <p style={{ fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>No exams added yet.</p>}
+                        {studentExams.map(ex => (
+                          <div key={ex.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.5rem 0.75rem' }}>
+                            <span style={{ fontSize: '0.85rem' }}><strong>{ex.name}</strong> — {new Date(ex.exam_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                            <button onClick={() => deleteStudentExam(ex.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><i className="ph ph-trash"></i></button>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: 180 }}>
+                          <label style={labelStyle}>Exam Name</label>
+                          <input style={inputStyle} value={examDraft.name} onChange={e => setExamDraft({ ...examDraft, name: e.target.value })} placeholder="e.g. GCSE Geography — Paper 1" />
+                        </div>
+                        <div style={{ flex: '0 0 160px' }}>
+                          <label style={labelStyle}>Date</label>
+                          <input type="date" style={inputStyle} value={examDraft.examDate} onChange={e => setExamDraft({ ...examDraft, examDate: e.target.value })} />
+                        </div>
+                        <button className="btn btn-outline" style={{ padding: '0.55rem 1.1rem', fontSize: '0.85rem' }} onClick={addStudentExam}><i className="ph ph-plus"></i> Add</button>
+                      </div>
+                    </div>
+
+                    {/* Upcoming Lessons — What to Cover */}
+                    {upcomingConfirmed.length > 0 && (
+                      <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+                        <h4 style={{ margin: '0 0 0.75rem' }}>Upcoming Lessons</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {upcomingConfirmed.map(b => (
+                            <div key={b.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.6rem 0.85rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                                <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>{new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(b.booking_date))}</span>
+                                {b.cover_note ? (
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 10px', borderRadius: 20 }}>What to Cover set</span>
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>No prep notes from student</span>
+                                )}
+                              </div>
+                              {b.cover_note && <p style={{ marginTop: 8, marginBottom: 0, fontSize: '0.85rem', color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.6rem 0.75rem', lineHeight: 1.5 }}>&ldquo;{b.cover_note}&rdquo;</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent Lessons — Complete/Missed + Lesson Notes + Quiz Scores */}
+                    {recentPast.length > 0 && (
+                      <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+                        <h4 style={{ margin: '0 0 0.75rem' }}>Recent Lessons</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {recentPast.map(b => {
+                            const lessonNum = lessonNumberFor(b.id);
+                            const existingNote = lessonNotes.find(n => n.booking_id === b.id);
+                            const existingQuiz = quizScores.find(q => q.booking_id === b.id);
+                            const isMissed = !!b.missed;
+                            return (
+                              <div key={b.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.75rem 1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                                    {lessonNum && <span style={{ color: 'var(--accent)' }}>Lesson {lessonNum} — </span>}
+                                    {new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(b.booking_date))}
+                                  </span>
+                                  <div style={{ display: 'inline-flex', border: '1px solid #e2e8f0', borderRadius: 50, overflow: 'hidden' }}>
+                                    <button onClick={() => toggleBookingMissed(b.id, false)} style={{ border: 'none', fontSize: '0.7rem', fontWeight: 600, padding: '0.35rem 0.7rem', cursor: 'pointer', background: isMissed ? '#fff' : '#dcfce7', color: isMissed ? '#94a3b8' : '#15803d' }}>Completed</button>
+                                    <button onClick={() => toggleBookingMissed(b.id, true)} style={{ border: 'none', fontSize: '0.7rem', fontWeight: 600, padding: '0.35rem 0.7rem', cursor: 'pointer', background: isMissed ? '#fee2e2' : '#fff', color: isMissed ? '#b91c1c' : '#94a3b8' }}>Missed</button>
+                                  </div>
+                                </div>
+
+                                {isMissed ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '0.5rem 0.75rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, fontSize: '0.78rem', color: '#b91c1c', fontWeight: 600 }}>
+                                    Marked missed — shows in red on the parent&apos;s calendar
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                                      {existingNote ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.7rem', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, fontSize: '0.75rem', color: '#0369a1', fontWeight: 600 }}>
+                                          {existingNote.topic} — {existingNote.pdf_url ? 'PDF attached' : 'saved'}
+                                        </div>
+                                      ) : (
+                                        <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem' }} onClick={() => { setNoteFormBookingId(noteFormBookingId === b.id ? null : b.id); setNoteDraft({ topic: '', file: null }); }}>
+                                          <i className="ph ph-file-text"></i> {noteFormBookingId === b.id ? 'Close' : 'Add Lesson Note'}
+                                        </button>
+                                      )}
+                                      {existingQuiz ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.7rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, fontSize: '0.75rem', color: '#15803d', fontWeight: 600 }}>
+                                          Quiz: {existingQuiz.score}/{existingQuiz.out_of}
+                                        </div>
+                                      ) : (
+                                        <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem' }} onClick={() => { setQuizFormBookingId(quizFormBookingId === b.id ? null : b.id); setQuizDraft({ score: '', outOf: '10' }); }}>
+                                          <i className="ph ph-target"></i> {quizFormBookingId === b.id ? 'Close' : 'Add Quiz Score'}
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {noteFormBookingId === b.id && (
+                                      <div style={{ marginTop: 10, padding: '0.75rem', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 6 }}>
+                                        <label style={labelStyle}>Topic / Unit Covered</label>
+                                        <input style={{ ...inputStyle, marginBottom: 10 }} value={noteDraft.topic} onChange={e => setNoteDraft({ ...noteDraft, topic: e.target.value })} placeholder="e.g. Rivers & Coasts — Landforms" />
+                                        <label style={labelStyle}>Lesson Notes PDF</label>
+                                        <input type="file" accept="application/pdf" style={{ marginBottom: 10, fontSize: '0.85rem' }} onChange={e => setNoteDraft({ ...noteDraft, file: e.target.files?.[0] || null })} />
+                                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                          <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => setNoteFormBookingId(null)}>Cancel</button>
+                                          <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveLessonNote(b.id, lessonNum)}>Save Note</button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {quizFormBookingId === b.id && (
+                                      <div style={{ marginTop: 10, padding: '0.75rem', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 6 }}>
+                                        <div style={{ display: 'flex', gap: 10 }}>
+                                          <div style={{ flex: '0 0 90px' }}>
+                                            <label style={labelStyle}>Score</label>
+                                            <input style={inputStyle} type="number" min={0} value={quizDraft.score} onChange={e => setQuizDraft({ ...quizDraft, score: e.target.value })} placeholder="8" />
+                                          </div>
+                                          <div style={{ flex: '0 0 90px' }}>
+                                            <label style={labelStyle}>Out of</label>
+                                            <input style={inputStyle} type="number" min={1} value={quizDraft.outOf} onChange={e => setQuizDraft({ ...quizDraft, outOf: e.target.value })} placeholder="10" />
+                                          </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
+                                          <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => setQuizFormBookingId(null)}>Cancel</button>
+                                          <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveQuizScore(b.id, lessonNum, noteDraft.topic)}>Save Score</button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '0.5rem 0 0' }}>Quiz scores feed into the student&apos;s Quiz/Exam Scores tab and their overall Progress Analysis badges.</p>
+                      </div>
+                    )}
+
+                    {/* Exam Questions & Mocks */}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h4 style={{ margin: 0 }}>Exam Questions &amp; Mocks</h4>
+                        <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => setMockFormOpen(!mockFormOpen)}><i className="ph ph-plus"></i> {mockFormOpen ? 'Close' : 'Add Mock / Exam'}</button>
+                      </div>
+                      {mockFormOpen && (
+                        <div style={{ padding: '0.9rem', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8, marginBottom: 12 }}>
+                          <label style={labelStyle}>Title</label>
+                          <input style={{ ...inputStyle, marginBottom: 10 }} value={mockDraft.title} onChange={e => setMockDraft({ ...mockDraft, title: e.target.value })} placeholder="e.g. Paper 2 Mock — Challenges in the Human Environment" />
+                          <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                            <div style={{ flex: '0 0 160px' }}>
+                              <label style={labelStyle}>Grade / Score</label>
+                              <input style={inputStyle} value={mockDraft.result} onChange={e => setMockDraft({ ...mockDraft, result: e.target.value })} placeholder="e.g. Grade 7 or 62/80" />
+                            </div>
+                            <div style={{ flex: '0 0 160px' }}>
+                              <label style={labelStyle}>Date</label>
+                              <input type="date" style={inputStyle} value={mockDraft.examDate} onChange={e => setMockDraft({ ...mockDraft, examDate: e.target.value })} />
+                            </div>
+                          </div>
+                          <label style={labelStyle}>Info / Notes for Student</label>
+                          <textarea style={{ ...inputStyle, minHeight: 70, marginBottom: 10, resize: 'vertical' }} value={mockDraft.info} onChange={e => setMockDraft({ ...mockDraft, info: e.target.value })} placeholder="e.g. Full past-paper conditions, 1hr 30min, marked against the AQA grade boundaries." />
+                          <label style={labelStyle}>Marked Paper PDF</label>
+                          <input type="file" accept="application/pdf" style={{ marginBottom: 10, fontSize: '0.85rem' }} onChange={e => setMockDraft({ ...mockDraft, file: e.target.files?.[0] || null })} />
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => setMockFormOpen(false)}>Cancel</button>
+                            <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={saveMockExam}>Save</button>
+                          </div>
+                        </div>
+                      )}
+                      {mockExams.length === 0 ? (
+                        <p style={{ fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>No exam questions or mock papers recorded yet.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {mockExams.map(m => (
+                            <div key={m.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.75rem 1rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{m.title}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  {m.result && <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 20 }}>{m.result}</span>}
+                                  <button onClick={() => deleteMockExam(m.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 0 }}><i className="ph ph-trash"></i></button>
+                                </div>
+                              </div>
+                              {m.info && <p style={{ fontSize: '0.82rem', color: '#64748b', lineHeight: 1.5, margin: '0 0 8px' }}>{m.info}</p>}
+                              {m.file_url && <a href={m.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>Marked paper attached</a>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Homework */}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h4 style={{ margin: 0 }}>Homework — {PACKAGE_NAME} Students</h4>
+                        <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => setHwFormOpen(!hwFormOpen)}><i className="ph ph-plus"></i> {hwFormOpen ? 'Close' : 'Add Homework'}</button>
+                      </div>
+                      {hwFormOpen && (
+                        <div style={{ padding: '0.9rem', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8, marginBottom: 12 }}>
+                          <label style={labelStyle}>Due Date</label>
+                          <input type="date" style={{ ...inputStyle, marginBottom: 10 }} value={hwDraft.dueDate} onChange={e => setHwDraft({ ...hwDraft, dueDate: e.target.value })} />
+                          <label style={labelStyle}>Instructions</label>
+                          <textarea style={{ ...inputStyle, minHeight: 70, marginBottom: 10, resize: 'vertical' }} value={hwDraft.instructions} onChange={e => setHwDraft({ ...hwDraft, instructions: e.target.value })} placeholder="What should the student do?" />
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => setHwFormOpen(false)}>Cancel</button>
+                            <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveHomework(recentPast[0]?.id, recentPast[0] ? lessonNumberFor(recentPast[0].id) : null)}>Save Homework</button>
+                          </div>
+                        </div>
+                      )}
+                      {homeworkList.length === 0 ? (
+                        <p style={{ fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>No homework set yet.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {homeworkList.map(hw => (
+                            <div key={hw.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.75rem 1rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{hw.lesson_number ? `Lesson ${hw.lesson_number} Homework` : 'Homework'}</span>
+                                {hw.due_date && <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: 20 }}>Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
+                              </div>
+                              {hw.instructions && <p style={{ fontSize: '0.82rem', color: '#64748b', lineHeight: 1.5, margin: '0 0 8px' }}>{hw.instructions}</p>}
+                              {hw.uploaded_file_url ? (
+                                <a href={hw.uploaded_file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>Student uploaded — view file</a>
+                              ) : (
+                                <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No work uploaded yet</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+
+              <button className="btn btn-secondary btn-full" style={{ marginTop: '1.5rem' }} onClick={() => setActiveModal(null)}>Close Data Panel</button>
             </div>
           </div>
         )}
@@ -1231,6 +1672,13 @@ export default function AdminPage() {
                     <input type="number" min="0" value={editForm.credits} onChange={e=>setEditForm({...editForm, credits: Math.max(0, parseInt(e.target.value) || 0)})} style={{ width: '80px', padding: '0.8rem', borderRadius: 4, border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600, fontSize: '1.1rem' }} />
                     <button type="button" onClick={() => setEditForm({...editForm, credits: editForm.credits + 1})} style={{ padding: '0.5rem 0.8rem', border: '1px solid #cbd5e1', borderRadius: 4, background: '#f8fafc', cursor: 'pointer', fontSize: '1rem' }}>+</button>
                   </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="checkbox-container" style={{ fontSize: '0.9rem' }}>
+                    <input type="checkbox" checked={editForm.isCommittedPackage} onChange={e => setEditForm({ ...editForm, isCommittedPackage: e.target.checked })} />
+                    <span className="checkmark"></span>
+                    <strong>On the {PACKAGE_NAME}</strong> <span style={{ fontWeight: 400, color: '#64748b', fontSize: '0.85rem' }}>(unlocks Lesson Notes, Homework, Quiz/Exam Scores, Progress Analysis for this student)</span>
+                  </label>
                 </div>
                 {editError && <p style={{ color: '#dc2626', marginBottom: '1rem' }}>{editError}</p>}
                 <button type="submit" className="btn btn-primary btn-full" disabled={isEditing}>{isEditing ? 'Saving...' : 'Save Changes'}</button>
