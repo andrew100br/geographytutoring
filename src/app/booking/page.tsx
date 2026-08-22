@@ -1366,7 +1366,7 @@ export default function BookingPage() {
                 )}
               </SideCard>
 
-              <SideCard>
+              <SideCard style={{ borderTop: `4px solid ${AMBER}` }}>
                 <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, color: TEXT_LIGHT, fontWeight: 700, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEXT_LIGHT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 01-3.46 0"></path></svg>
                   Lesson Reminders
@@ -1396,7 +1396,7 @@ export default function BookingPage() {
                 )}
               </SideCard>
 
-              <SideCard>
+              <SideCard style={{ borderTop: `4px solid ${AMBER}` }}>
                 <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, color: TEXT_LIGHT, fontWeight: 700, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEXT_LIGHT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 8l5-5 5 5"></path><path d="M4 21h16"></path></svg>
                   Homework Reminders
