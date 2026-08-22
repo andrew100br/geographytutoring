@@ -786,6 +786,8 @@ export default function BookingPage() {
       <div style={{ background: SECONDARY_BG, padding: '32px 0 80px' }}>
         <div className="container" style={{ maxWidth: 1160 }}>
 
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, color: TEXT_DARK, margin: '0 0 20px' }}>Your Learning Space</h1>
+
           <div className="top-row" style={{ display: 'flex', gap: 24, alignItems: 'stretch', marginBottom: 24, flexWrap: 'wrap' }}>
             <div style={{ flex: '2 1 420px', display: 'flex', gap: 20, alignItems: 'center', background: '#fff', borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.08)', padding: 22, borderLeft: `5px solid ${ACCENT}` }}>
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: SECONDARY_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
