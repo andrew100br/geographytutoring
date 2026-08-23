@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 
 const THAI_TZ = 'Asia/Bangkok';
 
@@ -294,7 +293,7 @@ export default function AdminPage() {
       // Revenue & Upcoming calc
       let actualRevenue = 0;
       const now = new Date();
-      const { data: allBookings } = await supabase.from('bookings').select('booking_date, status, user_id, is_monthly');
+      const allBookings = data.allBookings;
       if (allBookings) {
         let scheduleList = [...allBookings];
         scheduleList.forEach(b => {
@@ -339,13 +338,6 @@ export default function AdminPage() {
     setQuizFormBookingId(null);
     setMockFormOpen(false);
     setHwFormOpen(false);
-    const { data: bookings } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('booking_date', { ascending: false });
-    setUserBookings(bookings || []);
-
     // Dashboard-redesign extras — defensive: if the migration hasn't run yet,
     // this just comes back empty and the rest of the panel still works.
     try {
@@ -355,15 +347,18 @@ export default function AdminPage() {
       });
       if (res.ok) {
         const data = await res.json();
+        setUserBookings(data.bookings || []);
         setStudentExams(data.exams || []);
         setLessonNotes(data.lessonNotes || []);
         setQuizScores(data.quizScores || []);
         setMockExams(data.mockExams || []);
         setHomeworkList(data.homework || []);
       } else {
+        setUserBookings([]);
         setStudentExams([]); setLessonNotes([]); setQuizScores([]); setMockExams([]); setHomeworkList([]);
       }
     } catch {
+      setUserBookings([]);
       setStudentExams([]); setLessonNotes([]); setQuizScores([]); setMockExams([]); setHomeworkList([]);
     }
     setDetailsLoading(false);

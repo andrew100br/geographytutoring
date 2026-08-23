@@ -656,7 +656,10 @@ export default function BookingPage() {
   };
 
   const hasPackage = !!userProfile?.is_committed_package;
-  const toppedUp = (userProfile?.credits || 0) > 0;
+  // "Topped up" once, even if credits are since spent down to 0 — checked against
+  // current credits plus any booking (past or upcoming) they could only have made
+  // by spending a credit, so the direct-contact unlock never re-locks for returning clients.
+  const toppedUp = (userProfile?.credits || 0) > 0 || upcomingBookings.length > 0 || pastBookings.length > 0;
   const credits = userProfile?.credits || 0;
 
   let showMonthlyOption = false;
@@ -833,21 +836,21 @@ export default function BookingPage() {
                 <button onClick={() => { setActiveTab('notes'); setNotesSeen(true); }} style={tabBtnStyle(activeTab === 'notes')}>
                   Lesson Notes
                   {hasPackage && !notesSeen && <span style={{ width: 7, height: 7, borderRadius: '50%', background: RED }}></span>}
-                  {!hasPackage && <i className="ph ph-lock-simple" style={{ fontSize: 12, color: TEXT_LIGHT }}></i>}
+                  {!hasPackage && <i className="ph-fill ph-lock-simple" style={{ fontSize: 13, color: AMBER }}></i>}
                 </button>
                 <button onClick={() => { setActiveTab('homework'); setHomeworkSeen(true); }} style={tabBtnStyle(activeTab === 'homework')}>
                   Homework
                   {hasPackage && !homeworkSeen && <span style={{ width: 7, height: 7, borderRadius: '50%', background: RED }}></span>}
-                  {!hasPackage && <i className="ph ph-lock-simple" style={{ fontSize: 12, color: TEXT_LIGHT }}></i>}
+                  {!hasPackage && <i className="ph-fill ph-lock-simple" style={{ fontSize: 13, color: AMBER }}></i>}
                 </button>
                 <button onClick={() => { setActiveTab('quiz'); setQuizSeen(true); }} style={tabBtnStyle(activeTab === 'quiz')}>
                   Quiz/Exam Scores
                   {hasPackage && !quizSeen && <span style={{ width: 7, height: 7, borderRadius: '50%', background: RED }}></span>}
-                  {!hasPackage && <i className="ph ph-lock-simple" style={{ fontSize: 12, color: TEXT_LIGHT }}></i>}
+                  {!hasPackage && <i className="ph-fill ph-lock-simple" style={{ fontSize: 13, color: AMBER }}></i>}
                 </button>
                 <button onClick={() => setActiveTab('progress')} style={tabBtnStyle(activeTab === 'progress')}>
                   Progress Analysis
-                  {!hasPackage && <i className="ph ph-lock-simple" style={{ fontSize: 12, color: TEXT_LIGHT }}></i>}
+                  {!hasPackage && <i className="ph-fill ph-lock-simple" style={{ fontSize: 13, color: AMBER }}></i>}
                 </button>
               </div>
 
@@ -911,7 +914,7 @@ export default function BookingPage() {
                                       <span style={{ textDecoration: 'underline' }}>Notes</span>
                                     ) : (
                                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                        <i className="ph ph-lock-simple" style={{ fontSize: 10 }}></i> Notes
+                                        <i className="ph-fill ph-lock-simple" style={{ fontSize: 11, color: AMBER }}></i> Notes
                                       </span>
                                     )}
                                   </>
@@ -1369,56 +1372,40 @@ export default function BookingPage() {
               <SideCard style={{ borderTop: `4px solid ${AMBER}` }}>
                 <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, color: TEXT_LIGHT, fontWeight: 700, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEXT_LIGHT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 01-3.46 0"></path></svg>
-                  Lesson Reminders
+                  Reminders
                   {!hasPackage && (
                     <>
-                      <i className="ph ph-lock-simple" style={{ fontSize: 13, color: TEXT_LIGHT }}></i>
+                      <i className="ph-fill ph-lock-simple" style={{ fontSize: 14, color: AMBER }}></i>
                       <HoverCard trigger={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEXT_LIGHT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 17v-5M12 8h.01"></path></svg>}>
-                        An email reminder 1 day before each lesson, sent to any email you choose. Included with the {PACKAGE_NAME}.
+                        Email reminders the day before each lesson, and before any lesson with homework set. Included with the {PACKAGE_NAME}.
                       </HoverCard>
                     </>
                   )}
                 </p>
                 {hasPackage ? (
                   <>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: TEXT_LIGHT, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 8px' }}>Lesson Reminders</p>
                     <ToggleRow label="Email me 1 day before each lesson" checked={notifyLessonEnabled} onChange={(v) => { setNotifyLessonEnabled(v); saveNotifyPrefs({ notifyLessonEnabled: v }); }} marginBottom={notifyLessonEnabled ? 14 : 0} />
                     {notifyLessonEnabled && (
-                      <div>
+                      <div style={{ marginBottom: 16 }}>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: TEXT_LIGHT, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Send reminders to</label>
                         <input type="text" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} onBlur={() => saveNotifyPrefs({ notifyEmail })} placeholder="any@email.com" style={{ width: '100%', padding: '9px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, fontFamily: "'Inter', sans-serif" }} />
                       </div>
                     )}
+
+                    <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0 0 16px' }} />
+
+                    <p style={{ fontSize: 11, fontWeight: 700, color: TEXT_LIGHT, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 8px' }}>Homework Reminders</p>
+                    <ToggleRow
+                      label="Homework reminders (email sent day before lesson)"
+                      checked={notifyHomeworkEnabled}
+                      onChange={(v) => { setNotifyHomeworkEnabled(v); saveNotifyPrefs({ notifyHomeworkEnabled: v }); }}
+                      info="Sent to the same email as your Lesson Reminders above — if both are on, you'll get one combined email. Only sent when homework has actually been set for that lesson."
+                    />
                   </>
                 ) : (
                   <p style={{ fontSize: 12.5, color: TEXT_LIGHT, margin: 0, lineHeight: 1.5 }}>
-                    Available with the {PACKAGE_NAME} — never miss a lesson.
-                  </p>
-                )}
-              </SideCard>
-
-              <SideCard style={{ borderTop: `4px solid ${AMBER}` }}>
-                <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, color: TEXT_LIGHT, fontWeight: 700, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEXT_LIGHT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 8l5-5 5 5"></path><path d="M4 21h16"></path></svg>
-                  Homework Reminders
-                  {!hasPackage && (
-                    <>
-                      <i className="ph ph-lock-simple" style={{ fontSize: 13, color: TEXT_LIGHT }}></i>
-                      <HoverCard trigger={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEXT_LIGHT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 17v-5M12 8h.01"></path></svg>}>
-                        An email reminder the day before any lesson with homework set — combined into one email with your Lesson Reminder if both are on. Included with the {PACKAGE_NAME}.
-                      </HoverCard>
-                    </>
-                  )}
-                </p>
-                {hasPackage ? (
-                  <ToggleRow
-                    label="Homework reminders (email sent day before lesson)"
-                    checked={notifyHomeworkEnabled}
-                    onChange={(v) => { setNotifyHomeworkEnabled(v); saveNotifyPrefs({ notifyHomeworkEnabled: v }); }}
-                    info="Sent to the same email as your Lesson Reminders above — if both are on, you'll get one combined email. Only sent when homework has actually been set for that lesson."
-                  />
-                ) : (
-                  <p style={{ fontSize: 12.5, color: TEXT_LIGHT, margin: 0, lineHeight: 1.5 }}>
-                    Available with the {PACKAGE_NAME} — never miss a homework deadline.
+                    Available with the {PACKAGE_NAME} — never miss a lesson or a homework deadline.
                   </p>
                 )}
               </SideCard>
@@ -1643,15 +1630,17 @@ export default function BookingPage() {
             </div>
           )}
 
-          <div className="contact-section" style={{ marginTop: '3rem', maxWidth: '600px', margin: '3rem auto 0' }}>
-            <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.08)', padding: '1.5rem' }}>
-              <h4 style={{ marginBottom: '0.5rem', fontSize: '1.1rem' }}><i className="ph ph-envelope-simple"></i> Message Teacher Andrew</h4>
-              <p style={{ marginBottom: '1.5rem', fontSize: '0.85rem', color: '#64748b' }}>
-                This form is for initial contact only. All remaining contact can be done via email to my private Gmail account.
-              </p>
-              <ContactForm />
+          {!toppedUp && (
+            <div className="contact-section" style={{ marginTop: '3rem', maxWidth: '600px', margin: '3rem auto 0' }}>
+              <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.08)', padding: '1.5rem' }}>
+                <h4 style={{ marginBottom: '0.5rem', fontSize: '1.1rem' }}><i className="ph ph-envelope-simple"></i> Message Teacher Andrew</h4>
+                <p style={{ marginBottom: '1.5rem', fontSize: '0.85rem', color: '#64748b' }}>
+                  This form is for initial contact only. All remaining contact can be done via email to my private Gmail account.
+                </p>
+                <ContactForm />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="auth-header" style={{ textAlign: 'center', marginTop: '2rem' }}>
             <button onClick={handleLogout} className="btn btn-outline">Log Out</button>

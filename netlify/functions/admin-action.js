@@ -26,7 +26,9 @@ exports.handler = async (event, context) => {
         if (action === 'get_dashboard_data') {
             const { data: profiles, error } = await supabase.from('profiles').select('*');
             if (error) throw error;
-            return { statusCode: 200, body: JSON.stringify({ profiles }) };
+            const { data: allBookings, error: bookingsError } = await supabase.from('bookings').select('booking_date, status, user_id, is_monthly, missed');
+            if (bookingsError) throw bookingsError;
+            return { statusCode: 200, body: JSON.stringify({ profiles, allBookings }) };
         }
 
         if (action === 'delete_user') {
@@ -468,18 +470,20 @@ exports.handler = async (event, context) => {
 
         if (action === 'get_student_data') {
             const { userId } = payload;
-            const [examsRes, notesRes, quizRes, mocksRes, hwRes] = await Promise.all([
+            const [examsRes, notesRes, quizRes, mocksRes, hwRes, bookingsRes] = await Promise.all([
                 supabase.from('student_exams').select('*').eq('user_id', userId).order('exam_date', { ascending: true }),
                 supabase.from('lesson_notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
                 supabase.from('quiz_scores').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
                 supabase.from('mock_exams').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
                 supabase.from('homework').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+                supabase.from('bookings').select('*').eq('user_id', userId).order('booking_date', { ascending: false }),
             ]);
             if (examsRes.error) throw examsRes.error;
             if (notesRes.error) throw notesRes.error;
             if (quizRes.error) throw quizRes.error;
             if (mocksRes.error) throw mocksRes.error;
             if (hwRes.error) throw hwRes.error;
+            if (bookingsRes.error) throw bookingsRes.error;
             return {
                 statusCode: 200,
                 body: JSON.stringify({
@@ -488,6 +492,7 @@ exports.handler = async (event, context) => {
                     quizScores: quizRes.data,
                     mockExams: mocksRes.data,
                     homework: hwRes.data,
+                    bookings: bookingsRes.data,
                 }),
             };
         }
