@@ -120,6 +120,55 @@ const BLOG_LINKS = [
 
 type BookingRow = { date: Date; isMonthly: boolean; isTenLessons: boolean; id: string; status: string; missed?: boolean; coverNote?: string | null };
 
+// ---------------------------------------------------------------------------
+// Admin-only design preview — reuses this exact page's real rendering with
+// fake data so Teacher Andrew can see all three client states without
+// needing real test accounts. Activated by visiting /booking?preview=1.
+// Entirely client-side: no network writes, no real session, nothing here
+// touches the database.
+// ---------------------------------------------------------------------------
+type PreviewKind = 'lead' | 'payg' | 'package';
+
+const PREVIEW_LABELS: Record<PreviewKind, string> = {
+  lead: 'No Payment Yet',
+  payg: 'Pay As You Go',
+  package: 'Committed Package',
+};
+
+const PREVIEW_PROFILES: Record<PreviewKind, any> = {
+  lead: { parent_name: 'Priya Shah', child_name: 'Arjun Shah', country: 'Singapore', credits: 0, is_committed_package: false, zoom_link: null, zoom_password: null },
+  payg: { parent_name: 'Helen Wong', child_name: 'Sam Wong', country: 'Hong Kong', credits: 3, is_committed_package: false, zoom_link: 'https://zoom.us/j/1234567890', zoom_password: 'demo123' },
+  package: { parent_name: 'Michelle Tan', child_name: 'Alex Tan', country: 'Hong Kong', credits: 5, is_committed_package: true, zoom_link: 'https://zoom.us/j/1234567890', zoom_password: 'demo123' },
+};
+
+function buildPreviewBookings(kind: PreviewKind): { upcoming: BookingRow[]; past: BookingRow[] } {
+  if (kind === 'lead') return { upcoming: [], past: [] };
+  const mk = (daysOffset: number, status: string, missed = false, coverNote?: string): BookingRow => {
+    const d = new Date(); d.setDate(d.getDate() + daysOffset); d.setHours(17, 0, 0, 0);
+    return { date: d, isMonthly: false, isTenLessons: false, id: `preview-${daysOffset}`, status, missed, coverNote };
+  };
+  const upcoming = [mk(3, 'confirmed'), mk(10, 'confirmed', false, 'Please recap coasts before this lesson.')];
+  const past = kind === 'package'
+    ? [mk(-4, 'confirmed'), mk(-11, 'confirmed'), mk(-18, 'confirmed'), mk(-25, 'confirmed', true), mk(-32, 'confirmed')]
+    : [mk(-4, 'confirmed'), mk(-11, 'confirmed')];
+  return { upcoming, past };
+}
+
+const PREVIEW_LESSON_NOTES = [
+  { id: 'pn-1', lesson_number: 5, topic: 'Coastal Landforms — Erosion Processes', pdf_url: '#', created_at: new Date().toISOString() },
+  { id: 'pn-2', lesson_number: 4, topic: 'Plate Tectonics Recap', pdf_url: '#', created_at: new Date().toISOString() },
+];
+const PREVIEW_QUIZ_SCORES = [
+  { id: 'pq-1', lesson_number: 5, topic: 'Coastal Landforms', score: 8, out_of: 10, created_at: new Date().toISOString() },
+  { id: 'pq-2', lesson_number: 4, topic: 'Plate Tectonics', score: 9, out_of: 10, created_at: new Date().toISOString() },
+];
+const PREVIEW_HOMEWORK = [
+  { id: 'ph-1', lesson_number: 5, due_date: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), instructions: 'Label a diagram of a coastal headland and bay.', uploaded_file_url: null },
+];
+const PREVIEW_EXAMS = [
+  { id: 'pe-1', name: 'GCSE Geography Paper 1', exam_date: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10) },
+];
+
 export default function BookingPage() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -173,6 +222,35 @@ export default function BookingPage() {
 
   useEffect(() => { setBookingType('single'); }, [selectedDate]);
 
+  // Design preview — see the comment above PREVIEW_LABELS for what this does.
+  const [previewEligible, setPreviewEligible] = useState(false);
+  const [previewMode, setPreviewMode] = useState<PreviewKind>('lead');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1') {
+      setPreviewEligible(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!previewEligible) return;
+    const preset = PREVIEW_PROFILES[previewMode];
+    setSession({ user: { id: 'preview-user', email: 'preview@example.com' } });
+    setLoading(false);
+    setUserProfile({ id: 'preview-user', email: 'preview@example.com', ...preset });
+    const { upcoming, past } = buildPreviewBookings(previewMode);
+    setUpcomingBookings(upcoming);
+    setPastBookings(past);
+    const isPackage = previewMode === 'package';
+    setLessonNotes(isPackage ? PREVIEW_LESSON_NOTES : []);
+    setQuizScores(isPackage ? PREVIEW_QUIZ_SCORES : []);
+    setHomeworkList(isPackage ? PREVIEW_HOMEWORK : []);
+    setStudentExams(isPackage ? PREVIEW_EXAMS : []);
+    setNotifyLessonEnabled(isPackage);
+    setNotifyEmail('preview@example.com');
+    setNotifyHomeworkEnabled(isPackage);
+  }, [previewEligible, previewMode]);
+
   useEffect(() => {
     if (!sessionStorage.getItem('visit_tracked')) {
       fetch('/.netlify/functions/track-visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/booking' }) }).catch(() => {});
@@ -191,6 +269,8 @@ export default function BookingPage() {
   const [reviewError, setReviewError] = useState('');
 
   useEffect(() => {
+    const isPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
+    if (isPreview) { setLoading(false); return; }
     checkSession();
     fetchAllBookedSlots();
 
@@ -795,6 +875,31 @@ export default function BookingPage() {
     <main className="booking-main bg-light">
       <div style={{ background: SECONDARY_BG, padding: '32px 0 80px' }}>
         <div className="container" style={{ maxWidth: 1160 }}>
+
+          {previewEligible && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '10px 14px', marginBottom: 20 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: AMBER, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                <i className="ph ph-eye"></i> Design Preview — viewing as:
+              </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(Object.keys(PREVIEW_LABELS) as PreviewKind[]).map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => setPreviewMode(k)}
+                    style={{
+                      padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      border: previewMode === k ? 'none' : '1px solid #cbd5e1',
+                      background: previewMode === k ? ACCENT : '#fff',
+                      color: previewMode === k ? '#fff' : TEXT_DARK,
+                    }}
+                  >
+                    {PREVIEW_LABELS[k]}
+                  </button>
+                ))}
+              </div>
+              <span style={{ fontSize: 12, color: TEXT_LIGHT, marginLeft: 'auto' }}>Not visible to real clients — all data on this page is fake.</span>
+            </div>
+          )}
 
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, color: TEXT_DARK, margin: '0 0 20px' }}>Your Learning Space</h1>
 
