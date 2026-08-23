@@ -518,23 +518,22 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
-        // Shared helper: admin-uploaded files (lesson note PDFs, marked mock
-        // papers) arrive as base64 and get pushed to Supabase Storage here.
-        const uploadAdminFile = async (base64, fileName, folder) => {
-            if (!base64 || !fileName) return null;
-            const buffer = Buffer.from(base64, 'base64');
+        // Large files (whiteboard scans, marked mock papers) go straight from the
+        // browser to Supabase Storage via a signed upload URL — routing the file
+        // bytes through this function would hit Netlify's ~6MB request-body cap.
+        if (action === 'create_upload_url') {
+            const { folder, fileName } = payload;
             const path = `${folder}/${Date.now()}-${fileName}`;
-            const { error: uploadError } = await supabase.storage.from('dashboard-files').upload(path, buffer, { upsert: false });
-            if (uploadError) throw uploadError;
+            const { data, error } = await supabase.storage.from('dashboard-files').createSignedUploadUrl(path);
+            if (error) throw error;
             const { data: pub } = supabase.storage.from('dashboard-files').getPublicUrl(path);
-            return pub.publicUrl;
-        };
+            return { statusCode: 200, body: JSON.stringify({ path: data.path, token: data.token, publicUrl: pub.publicUrl }) };
+        }
 
         if (action === 'add_lesson_note') {
-            const { userId, bookingId, lessonNumber, topic, fileBase64, fileName } = payload;
-            const pdfUrl = await uploadAdminFile(fileBase64, fileName, 'lesson-notes');
+            const { userId, bookingId, lessonNumber, topic, pdfUrl } = payload;
             const { error } = await supabase.from('lesson_notes').insert([{
-                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, topic, pdf_url: pdfUrl,
+                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, topic, pdf_url: pdfUrl || null,
             }]);
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
@@ -551,10 +550,9 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'add_mock_exam') {
-            const { userId, title, info, result, examDate, fileBase64, fileName } = payload;
-            const fileUrl = await uploadAdminFile(fileBase64, fileName, 'mock-exams');
+            const { userId, title, info, result, examDate, fileUrl } = payload;
             const { error } = await supabase.from('mock_exams').insert([{
-                user_id: userId, title, info: info || null, result: result || null, exam_date: examDate || null, file_url: fileUrl,
+                user_id: userId, title, info: info || null, result: result || null, exam_date: examDate || null, file_url: fileUrl || null,
             }]);
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };

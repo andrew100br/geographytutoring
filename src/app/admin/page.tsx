@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 const THAI_TZ = 'Asia/Bangkok';
 
@@ -364,12 +365,19 @@ export default function AdminPage() {
     setDetailsLoading(false);
   };
 
-  const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  // Uploads go straight from the browser to Supabase Storage via a signed
+  // URL, so a multi-MB whiteboard scan never has to pass through the
+  // Netlify function's ~6MB request-body limit.
+  const uploadViaSignedUrl = async (file: File, folder: string): Promise<string> => {
+    const res = await fetch('/.netlify/functions/admin-action', {
+      method: 'POST', body: JSON.stringify({ action: 'create_upload_url', password: adminPass, payload: { folder, fileName: file.name } }),
+    });
+    if (!res.ok) throw new Error('Could not prepare the upload.');
+    const { path, token, publicUrl } = await res.json();
+    const { error } = await supabase.storage.from('dashboard-files').uploadToSignedUrl(path, token, file);
+    if (error) throw new Error(error.message || 'Upload to storage failed.');
+    return publicUrl;
+  };
 
   const saveZoomCredentials = async () => {
     try {
@@ -404,16 +412,16 @@ export default function AdminPage() {
 
   const saveLessonNote = async (bookingId: string, lessonNumber: number | null) => {
     try {
-      let fileBase64, fileName;
-      if (noteDraft.file) { fileBase64 = await fileToBase64(noteDraft.file); fileName = noteDraft.file.name; }
+      let pdfUrl;
+      if (noteDraft.file) pdfUrl = await uploadViaSignedUrl(noteDraft.file, 'lesson-notes');
       const res = await fetch('/.netlify/functions/admin-action', {
-        method: 'POST', body: JSON.stringify({ action: 'add_lesson_note', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, topic: noteDraft.topic || 'Untitled Lesson', fileBase64, fileName } }),
+        method: 'POST', body: JSON.stringify({ action: 'add_lesson_note', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, topic: noteDraft.topic || 'Untitled Lesson', pdfUrl } }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error('Failed to save the note.');
       setNoteFormBookingId(null);
       setNoteDraft({ topic: '', file: null });
       openDetails(selectedUser);
-    } catch { alert('Failed to save lesson note.'); }
+    } catch (err: any) { alert(err?.message || 'Failed to save lesson note.'); }
   };
 
   const saveQuizScore = async (bookingId: string, lessonNumber: number | null, topic: string) => {
@@ -431,16 +439,16 @@ export default function AdminPage() {
   const saveMockExam = async () => {
     if (!mockDraft.title) return;
     try {
-      let fileBase64, fileName;
-      if (mockDraft.file) { fileBase64 = await fileToBase64(mockDraft.file); fileName = mockDraft.file.name; }
+      let fileUrl;
+      if (mockDraft.file) fileUrl = await uploadViaSignedUrl(mockDraft.file, 'mock-exams');
       const res = await fetch('/.netlify/functions/admin-action', {
-        method: 'POST', body: JSON.stringify({ action: 'add_mock_exam', password: adminPass, payload: { userId: selectedUser.id, title: mockDraft.title, info: mockDraft.info, result: mockDraft.result, examDate: mockDraft.examDate, fileBase64, fileName } }),
+        method: 'POST', body: JSON.stringify({ action: 'add_mock_exam', password: adminPass, payload: { userId: selectedUser.id, title: mockDraft.title, info: mockDraft.info, result: mockDraft.result, examDate: mockDraft.examDate, fileUrl } }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error('Failed to save the mock exam.');
       setMockFormOpen(false);
       setMockDraft({ title: '', info: '', result: '', examDate: '', file: null });
       openDetails(selectedUser);
-    } catch { alert('Failed to save mock exam.'); }
+    } catch (err: any) { alert(err?.message || 'Failed to save mock exam.'); }
   };
 
   const deleteMockExam = async (mockExamId: string) => {

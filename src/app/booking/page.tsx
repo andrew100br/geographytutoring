@@ -560,21 +560,28 @@ export default function BookingPage() {
     if (!session) return;
     setUploadingHwId(homeworkId);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+      // The file goes straight from the browser to Supabase Storage via a
+      // signed URL, so it never has to pass through the Netlify function's
+      // ~6MB request-body limit.
+      const signRes = await fetch('/.netlify/functions/student-action', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create_homework_upload_url', token: session.access_token, data: { homeworkId, fileName: file.name } })
       });
+      const signed = await signRes.json();
+      if (!signRes.ok) { alert(signed.error || 'Upload failed.'); return; }
+
+      const { error: uploadError } = await supabase.storage.from('dashboard-files').uploadToSignedUrl(signed.path, signed.token, file);
+      if (uploadError) { alert(uploadError.message || 'Upload failed.'); return; }
+
       const res = await fetch('/.netlify/functions/student-action', {
         method: 'POST',
-        body: JSON.stringify({ action: 'upload_homework', token: session.access_token, data: { homeworkId, fileBase64: base64, fileName: file.name } })
+        body: JSON.stringify({ action: 'upload_homework', token: session.access_token, data: { homeworkId, fileUrl: signed.publicUrl } })
       });
       const d = await res.json();
       if (!res.ok) { alert(d.error || 'Upload failed.'); return; }
       setHomeworkList(prev => prev.map(hw => hw.id === homeworkId ? { ...hw, uploaded_file_url: d.url, uploaded_at: new Date().toISOString() } : hw));
     } catch (err) {
-      alert('Upload failed. Please try a smaller file.');
+      alert('Upload failed. Please try again.');
     } finally {
       setUploadingHwId(null);
     }

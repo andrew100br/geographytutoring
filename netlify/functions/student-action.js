@@ -139,8 +139,29 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        // Large files go straight from the browser to Supabase Storage via a
+        // signed upload URL — routing the bytes through this function would hit
+        // Netlify's ~6MB request-body cap.
+        if (action === 'create_homework_upload_url') {
+            const { homeworkId, fileName } = data;
+            const serviceSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+            const { data: hw, error: fetchError } = await serviceSupabase
+                .from('homework').select('id, user_id').eq('id', homeworkId).single();
+            if (fetchError) throw fetchError;
+            if (!hw || hw.user_id !== user.id) {
+                return { statusCode: 403, body: JSON.stringify({ error: 'Not your homework.' }) };
+            }
+
+            const path = `homework-uploads/${Date.now()}-${fileName}`;
+            const { data: signed, error: signError } = await serviceSupabase.storage.from('dashboard-files').createSignedUploadUrl(path);
+            if (signError) throw signError;
+            const { data: pub } = serviceSupabase.storage.from('dashboard-files').getPublicUrl(path);
+            return { statusCode: 200, body: JSON.stringify({ path: signed.path, token: signed.token, publicUrl: pub.publicUrl }) };
+        }
+
         if (action === 'upload_homework') {
-            const { homeworkId, fileBase64, fileName } = data;
+            const { homeworkId, fileUrl } = data;
             const serviceSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
             // Ownership check
@@ -151,17 +172,11 @@ exports.handler = async (event, context) => {
                 return { statusCode: 403, body: JSON.stringify({ error: 'Not your homework.' }) };
             }
 
-            const buffer = Buffer.from(fileBase64, 'base64');
-            const path = `homework-uploads/${Date.now()}-${fileName}`;
-            const { error: uploadError } = await serviceSupabase.storage.from('dashboard-files').upload(path, buffer, { upsert: false });
-            if (uploadError) throw uploadError;
-            const { data: pub } = serviceSupabase.storage.from('dashboard-files').getPublicUrl(path);
-
             const { error } = await serviceSupabase.from('homework').update({
-                uploaded_file_url: pub.publicUrl, uploaded_at: new Date().toISOString(),
+                uploaded_file_url: fileUrl, uploaded_at: new Date().toISOString(),
             }).eq('id', homeworkId);
             if (error) throw error;
-            return { statusCode: 200, body: JSON.stringify({ success: true, url: pub.publicUrl }) };
+            return { statusCode: 200, body: JSON.stringify({ success: true, url: fileUrl }) };
         }
 
         return { statusCode: 400, body: JSON.stringify({ error: 'Unknown student action.' }) };
