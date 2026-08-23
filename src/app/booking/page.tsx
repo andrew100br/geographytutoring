@@ -926,10 +926,18 @@ export default function BookingPage() {
 
             <div style={{ flex: '1 1 260px', background: '#fff', borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.08)', padding: 22, borderTop: `4px solid ${GREEN}` }}>
               <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, color: TEXT_LIGHT, fontWeight: 700, margin: '0 0 10px' }}>Your Credits</p>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
                 <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, fontWeight: 700, color: GREEN_TEXT, lineHeight: 1 }}>{credits}</span>
                 <span style={{ fontSize: 13, color: TEXT_LIGHT, fontWeight: 600 }}>credit{credits === 1 ? '' : 's'} to book</span>
               </div>
+              {upcomingBookings.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                  {upcomingBookings.map((b, i) => (
+                    <div key={b.id || i} title={new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(b.date)}
+                      style={{ width: 15, height: 15, borderRadius: 4, background: GREEN, flexShrink: 0 }} />
+                  ))}
+                </div>
+              )}
               <p style={{ fontSize: 12.5, color: TEXT_LIGHT, margin: 0, lineHeight: 1.5 }}>
                 {upcomingBookings.length} lesson{upcomingBookings.length === 1 ? '' : 's'} already booked{hasPackage ? ` · ${PACKAGE_NAME}` : ''}
               </p>
