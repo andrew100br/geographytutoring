@@ -1018,7 +1018,7 @@ export default function BookingPage() {
                               let label: React.ReactNode = s.display;
 
                               if (s.kind === 'booked') {
-                                style = { ...style, background: 'rgba(34,197,94,0.16)', color: GREEN_TEXT };
+                                style = { ...style, background: 'rgba(34,197,94,0.16)', color: GREEN_TEXT, border: `2px solid ${GREEN}` };
                               } else if (s.kind === 'missed') {
                                 style = { ...style, background: 'rgba(239,68,68,0.14)', color: '#b91c1c' };
                               } else if (s.kind === 'completed') {
@@ -1064,7 +1064,6 @@ export default function BookingPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: TEXT_LIGHT }}><span style={{ width: 14, height: 14, borderRadius: 4, background: 'rgba(34,197,94,0.16)', display: 'inline-block' }}></span> Your booked lesson</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: TEXT_LIGHT }}><span style={{ width: 14, height: 14, borderRadius: 4, background: '#dbeafe', display: 'inline-block' }}></span> Completed{hasPackage ? ' — click for notes' : ' (notes with Committed Package)'}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: TEXT_LIGHT }}><span style={{ width: 14, height: 14, borderRadius: 4, background: 'rgba(239,68,68,0.14)', display: 'inline-block' }}></span> Missed</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: TEXT_LIGHT }}><span style={{ width: 14, height: 14, borderRadius: 4, background: '#e2e8f0', display: 'inline-block' }}></span> Unavailable</div>
                   </div>
 
                   <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid #edf2f7' }}>
@@ -1477,12 +1476,12 @@ export default function BookingPage() {
                 </p>
                 {soonestExam ? (
                   <>
-                    <div style={{ marginBottom: 6 }}>
-                      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 44, fontWeight: 700, color: BLUE, lineHeight: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, fontWeight: 700, color: BLUE, lineHeight: 1 }}>
                         {Math.max(0, Math.ceil((new Date(soonestExam.exam_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}
                       </span>
+                      <span style={{ fontSize: 14, color: TEXT_DARK, fontWeight: 600, lineHeight: 1.3 }}>days to go until {soonestExam.name}</span>
                     </div>
-                    <p style={{ fontSize: 14, color: TEXT_DARK, fontWeight: 600, margin: '0 0 6px' }}>days to go until {soonestExam.name}</p>
                     <p style={{ fontSize: 12.5, color: TEXT_LIGHT, margin: 0 }}>{new Date(soonestExam.exam_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
                   </>
                 ) : (
