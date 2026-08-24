@@ -166,7 +166,7 @@ const PREVIEW_HOMEWORK = [
   { id: 'ph-1', lesson_number: 5, due_date: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), instructions: 'Label a diagram of a coastal headland and bay.', uploaded_file_url: null },
 ];
 const PREVIEW_EXAMS = [
-  { id: 'pe-1', name: 'GCSE Geography Paper 1', exam_date: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10) },
+  { id: 'pe-1', name: 'Paper 1', exam_date: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10) },
 ];
 
 export default function BookingPage() {
