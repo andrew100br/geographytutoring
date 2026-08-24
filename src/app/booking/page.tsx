@@ -930,12 +930,12 @@ export default function BookingPage() {
                 <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, fontWeight: 700, color: GREEN_TEXT, lineHeight: 1 }}>{credits}</span>
                 <span style={{ fontSize: 13, color: TEXT_LIGHT, fontWeight: 600 }}>credit{credits === 1 ? '' : 's'} to book</span>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                 {Array.from({ length: 10 }).map((_, i) => {
                   const booking = upcomingBookings[i];
                   return (
                     <div key={i} title={booking ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(booking.date) : 'To be booked'}
-                      style={{ width: 15, height: 15, borderRadius: 4, background: booking ? GREEN : '#e2e8f0', flexShrink: 0 }} />
+                      style={{ flex: '1 1 0', minWidth: 0, height: 18, borderRadius: 4, background: booking ? GREEN : '#e2e8f0' }} />
                   );
                 })}
               </div>
