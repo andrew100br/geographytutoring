@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const { createCalendarEvent } = require('./lib/google-calendar');
+const { sanitizeFileName } = require('./lib/sanitize');
 
 exports.handler = async (event, context) => {
     if (event.httpMethod !== 'POST') {
@@ -153,7 +154,7 @@ exports.handler = async (event, context) => {
                 return { statusCode: 403, body: JSON.stringify({ error: 'Not your homework.' }) };
             }
 
-            const path = `homework-uploads/${Date.now()}-${fileName}`;
+            const path = `homework-uploads/${Date.now()}-${sanitizeFileName(fileName)}`;
             const { data: signed, error: signError } = await serviceSupabase.storage.from('dashboard-files').createSignedUploadUrl(path);
             if (signError) throw signError;
             const { data: pub } = serviceSupabase.storage.from('dashboard-files').getPublicUrl(path);

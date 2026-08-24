@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const { createCalendarEvent, deleteCalendarEvent } = require('./lib/google-calendar');
+const { sanitizeFileName } = require('./lib/sanitize');
 
 exports.handler = async (event, context) => {
     // Only allow POST requests
@@ -523,7 +524,7 @@ exports.handler = async (event, context) => {
         // bytes through this function would hit Netlify's ~6MB request-body cap.
         if (action === 'create_upload_url') {
             const { folder, fileName } = payload;
-            const path = `${folder}/${Date.now()}-${fileName}`;
+            const path = `${folder}/${Date.now()}-${sanitizeFileName(fileName)}`;
             const { data, error } = await supabase.storage.from('dashboard-files').createSignedUploadUrl(path);
             if (error) throw error;
             const { data: pub } = supabase.storage.from('dashboard-files').getPublicUrl(path);
