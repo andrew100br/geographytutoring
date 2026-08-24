@@ -44,7 +44,7 @@ exports.handler = async (event, context) => {
             // Get current credits
             const { data: profile, error: profileErr } = await supabase
                 .from('profiles')
-                .select('credits')
+                .select('credits, parent_name, child_name')
                 .eq('id', userId)
                 .single();
 
@@ -61,6 +61,39 @@ exports.handler = async (event, context) => {
             if (updateErr) throw updateErr;
 
             console.log(`Successfully added ${creditsToAdd} credits to user ${userId}`);
+
+            // Email notification to Teacher Andrew
+            if (process.env.RESEND_API_KEY) {
+                const paid = typeof session.amount_total === 'number'
+                    ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: (session.currency || 'gbp').toUpperCase() }).format(session.amount_total / 100)
+                    : null;
+                const studentName = profile.child_name || 'Unknown';
+                const parentName = profile.parent_name || 'Unknown';
+                await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        from: 'Teacher Andrew Site <newsletter@teacherandrewgeo.com>',
+                        to: 'andrew100br@gmail.com',
+                        subject: `Credit top-up: ${studentName} (+${creditsToAdd})`,
+                        html: `
+                            <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:10px;">
+                              <h2 style="color:#1e3a5f;margin:0 0 8px;">Credits Purchased</h2>
+                              <p style="color:#64748b;margin:0 0 20px;font-size:14px;">A client has topped up their lesson credits.</p>
+                              <div style="background:#fff;border-radius:8px;padding:20px 24px;border:1px solid #e2e8f0;">
+                                <p style="margin:0 0 6px;font-weight:700;color:#1e293b;font-size:16px;">${studentName} (${parentName})</p>
+                                <p style="margin:0 0 4px;font-size:15px;color:#334155;">+${creditsToAdd} credit${creditsToAdd === 1 ? '' : 's'}${paid ? ` — paid ${paid}` : ''}</p>
+                                <p style="margin:0;font-size:15px;color:#334155;">New balance: <strong>${newCredits}</strong> credit${newCredits === 1 ? '' : 's'}</p>
+                              </div>
+                              <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;">Check the admin portal for full account details.</p>
+                            </div>
+                        `,
+                    }),
+                }).catch((emailErr) => console.error('Top-up email failed:', emailErr));
+            }
 
         } catch (error) {
             console.error('Error updating Supabase:', error);
