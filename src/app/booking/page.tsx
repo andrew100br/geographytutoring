@@ -1009,7 +1009,8 @@ export default function BookingPage() {
                   <div className="cal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 6 }}>
                     {cells.map((c, i) => {
                       if (c.blank) return <div key={i} className="cal-day-cell" style={{ background: 'transparent', minHeight: 96 }} />;
-                      const isSignificant = c.slots.length > 0;
+                      const visibleSlots = c.slots.filter(s => s.kind !== 'unavailable');
+                      const isSignificant = visibleSlots.length > 0;
                       return (
                         <div key={i} className="cal-day-cell" style={{
                           position: 'relative', minHeight: 96, borderRadius: 10,
@@ -1020,12 +1021,11 @@ export default function BookingPage() {
                         }}>
                           <span className="cal-day-num" style={{ fontSize: 12, fontWeight: 700, color: c.isToday ? TEXT_DARK : TEXT_LIGHT, padding: '0 2px' }}>{c.day}</span>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            {c.slots.length === 0 && <span style={{ fontSize: 10.5, color: '#cbd5e1', padding: '4px 2px' }}>—</span>}
-                            {c.slots.map((s, si) => {
+                            {visibleSlots.length === 0 && <span style={{ fontSize: 10.5, color: '#cbd5e1', padding: '4px 2px' }}>—</span>}
+                            {visibleSlots.map((s, si) => {
                               let style: React.CSSProperties = { fontSize: 11, fontWeight: 600, padding: '3px 5px', borderRadius: 5, textAlign: 'center', lineHeight: 1.3, border: 'none', width: '100%', fontFamily: "'Inter', sans-serif", cursor: 'pointer', overflowWrap: 'break-word', wordBreak: 'break-word' };
                               let onClick = () => openDay(c.date);
                               let label: React.ReactNode = s.display;
-                              let title: string | undefined;
 
                               if (s.kind === 'booked') {
                                 style = { ...style, background: 'rgba(34,197,94,0.16)', color: GREEN_TEXT, border: `2px solid ${GREEN}` };
@@ -1050,11 +1050,6 @@ export default function BookingPage() {
                                     )}
                                   </>
                                 );
-                              } else if (s.kind === 'unavailable') {
-                                style = { ...style, background: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed' };
-                                onClick = () => {};
-                                title = 'Unavailable';
-                                label = <span style={{ textDecoration: 'line-through', textDecorationThickness: 2 }}>{s.display}</span>;
                               } else if (s.kind === 'past-empty') {
                                 style = { ...style, background: 'transparent', color: '#cbd5e1', border: '1px dashed #e2e8f0', cursor: 'default' };
                                 onClick = () => {};
@@ -1062,7 +1057,7 @@ export default function BookingPage() {
                                 style = { ...style, background: SECONDARY_BG, color: ACCENT, border: '1px solid #e2e8f0' };
                                 onClick = () => { setSelectedDay(c.date); setSelectedDate(s.raw); };
                               }
-                              return <button key={si} type="button" className="cal-slot-btn" style={style} onClick={onClick} title={title}>{label}</button>;
+                              return <button key={si} type="button" className="cal-slot-btn" style={style} onClick={onClick}>{label}</button>;
                             })}
                           </div>
                         </div>
@@ -1138,7 +1133,7 @@ export default function BookingPage() {
                         <>
                           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>{dateLabel}</p>
                           <p style={{ fontSize: 14, color: TEXT_LIGHT, fontStyle: 'italic' }}>
-                            {selectedCell.slots.length === 0 ? 'No lessons are scheduled this day.' : 'This date has passed with no lesson booked.'}
+                            {selectedCell.slots.every(s => s.kind === 'unavailable') ? 'No lessons are scheduled this day.' : 'This date has passed with no lesson booked.'}
                           </p>
                         </>
                       );
