@@ -195,14 +195,6 @@ export default function BookingPage() {
   const [showHistory, setShowHistory] = useState(false);
 
   // New dashboard: month view + tabs
-  const [isNarrowScreen, setIsNarrowScreen] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 560px)');
-    const update = () => setIsNarrowScreen(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
   const [currentMonth, setCurrentMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
   const [activeTab, setActiveTab] = useState<'calendar' | 'cover' | 'notes' | 'homework' | 'quiz' | 'progress'>('calendar');
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
@@ -1033,6 +1025,7 @@ export default function BookingPage() {
                               let style: React.CSSProperties = { fontSize: 11, fontWeight: 600, padding: '3px 5px', borderRadius: 5, textAlign: 'center', lineHeight: 1.3, border: 'none', width: '100%', fontFamily: "'Inter', sans-serif", cursor: 'pointer', overflowWrap: 'break-word', wordBreak: 'break-word' };
                               let onClick = () => openDay(c.date);
                               let label: React.ReactNode = s.display;
+                              let title: string | undefined;
 
                               if (s.kind === 'booked') {
                                 style = { ...style, background: 'rgba(34,197,94,0.16)', color: GREEN_TEXT, border: `2px solid ${GREEN}` };
@@ -1060,7 +1053,8 @@ export default function BookingPage() {
                               } else if (s.kind === 'unavailable') {
                                 style = { ...style, background: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed' };
                                 onClick = () => {};
-                                label = isNarrowScreen ? 'N/A' : 'Unavailable';
+                                title = 'Unavailable';
+                                label = <span style={{ textDecoration: 'line-through', textDecorationThickness: 2 }}>{s.display}</span>;
                               } else if (s.kind === 'past-empty') {
                                 style = { ...style, background: 'transparent', color: '#cbd5e1', border: '1px dashed #e2e8f0', cursor: 'default' };
                                 onClick = () => {};
@@ -1068,7 +1062,7 @@ export default function BookingPage() {
                                 style = { ...style, background: SECONDARY_BG, color: ACCENT, border: '1px solid #e2e8f0' };
                                 onClick = () => { setSelectedDay(c.date); setSelectedDate(s.raw); };
                               }
-                              return <button key={si} type="button" className="cal-slot-btn" style={style} onClick={onClick}>{label}</button>;
+                              return <button key={si} type="button" className="cal-slot-btn" style={style} onClick={onClick} title={title}>{label}</button>;
                             })}
                           </div>
                         </div>
