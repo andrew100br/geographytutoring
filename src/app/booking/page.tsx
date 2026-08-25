@@ -1072,6 +1072,12 @@ export default function BookingPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: TEXT_LIGHT }}><span style={{ width: 14, height: 14, borderRadius: 4, background: 'rgba(239,68,68,0.14)', display: 'inline-block' }}></span> Missed</div>
                   </div>
 
+                  <p style={{ fontSize: 12, color: TEXT_LIGHT, margin: '10px 0 0' }}>
+                    Need to reschedule or cancel a booked lesson? Please read the{' '}
+                    <a href="/policies#cancellation-rescheduling" style={{ color: ACCENT, fontWeight: 600, textDecoration: 'underline' }}>notice period required</a>{' '}
+                    before you book.
+                  </p>
+
                   <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid #edf2f7' }}>
                     {(() => {
                       if (!selectedCell) return null;
@@ -1120,12 +1126,7 @@ export default function BookingPage() {
                         return (
                           <>
                             <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>{dateLabel}</p>
-                            <p style={{ fontSize: 13, color: TEXT_LIGHT, margin: '0 0 6px' }}>Click a time above to book this lesson — you'll be asked to confirm.</p>
-                            <p style={{ fontSize: 12, color: TEXT_LIGHT, margin: 0 }}>
-                              Need to reschedule or cancel a booked lesson? Please read the{' '}
-                              <a href="/policies#cancellation-rescheduling" style={{ color: ACCENT, fontWeight: 600, textDecoration: 'underline' }}>notice period required</a>{' '}
-                              before you book.
-                            </p>
+                            <p style={{ fontSize: 13, color: TEXT_LIGHT, margin: 0 }}>Click a time above to book this lesson — you'll be asked to confirm.</p>
                           </>
                         );
                       }
