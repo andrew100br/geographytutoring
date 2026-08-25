@@ -881,7 +881,7 @@ export default function BookingPage() {
               <span style={{ fontSize: 12.5, fontWeight: 700, color: AMBER, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 <i className="ph ph-eye"></i> Design Preview — viewing as:
               </span>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {(Object.keys(PREVIEW_LABELS) as PreviewKind[]).map((k) => (
                   <button
                     key={k}
@@ -946,7 +946,7 @@ export default function BookingPage() {
           </div>
 
           <style>{`
-            @media (max-width: 900px) { .booking-dashboard-layout { grid-template-columns: 1fr !important; } }
+            @media (max-width: 900px) { .booking-dashboard-layout { grid-template-columns: minmax(0, 1fr) !important; } }
           `}</style>
 
           <div className="booking-dashboard-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 28, alignItems: 'start' }}>
