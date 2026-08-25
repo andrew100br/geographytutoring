@@ -195,6 +195,14 @@ export default function BookingPage() {
   const [showHistory, setShowHistory] = useState(false);
 
   // New dashboard: month view + tabs
+  const [isNarrowScreen, setIsNarrowScreen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 560px)');
+    const update = () => setIsNarrowScreen(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   const [currentMonth, setCurrentMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
   const [activeTab, setActiveTab] = useState<'calendar' | 'cover' | 'notes' | 'homework' | 'quiz' | 'progress'>('calendar');
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
@@ -905,12 +913,12 @@ export default function BookingPage() {
 
           <div className="top-row" style={{ display: 'flex', gap: 24, alignItems: 'stretch', marginBottom: 24, flexWrap: 'wrap' }}>
             <div style={{ flex: '2 1 420px', display: 'flex', gap: 20, alignItems: 'center', background: '#fff', borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.08)', padding: 22, borderLeft: `5px solid ${ACCENT}` }}>
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: SECONDARY_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div className="next-lesson-icon" style={{ width: 52, height: 52, borderRadius: '50%', background: SECONDARY_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path><path d="M9 16l2 2 4-4"></path></svg>
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT, fontWeight: 700, margin: '0 0 6px' }}>Your Next Lesson</p>
-                <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, margin: '0 0 10px' }}>
+                <p className="next-lesson-text" style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, margin: '0 0 10px' }}>
                   {nextLesson ? new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(nextLesson.date) + ' · ' + to12h(nextLesson.date) : 'No lesson booked yet'}
                 </p>
                 {userProfile?.zoom_link && (
@@ -947,6 +955,15 @@ export default function BookingPage() {
 
           <style>{`
             @media (max-width: 900px) { .booking-dashboard-layout { grid-template-columns: minmax(0, 1fr) !important; } }
+            @media (max-width: 560px) {
+              .next-lesson-text { font-size: 19px !important; line-height: 1.25 !important; }
+              .next-lesson-icon { width: 40px !important; height: 40px !important; }
+              .cal-grid { gap: 3px !important; }
+              .cal-day-cell { min-height: 58px !important; padding: 3px !important; gap: 2px !important; border-radius: 7px !important; }
+              .cal-day-num { font-size: 10px !important; }
+              .cal-weekday-label { font-size: 8.5px !important; letter-spacing: 0 !important; padding-bottom: 2px !important; }
+              .cal-slot-btn { font-size: 8px !important; padding: 2px 1px !important; line-height: 1.15 !important; border-radius: 4px !important; }
+            }
           `}</style>
 
           <div className="booking-dashboard-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 28, alignItems: 'start' }}>
@@ -991,29 +1008,29 @@ export default function BookingPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 6, marginBottom: 6 }}>
+                  <div className="cal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 6, marginBottom: 6 }}>
                     {WEEKDAY_LABELS.map((wd) => (
-                      <div key={wd} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: TEXT_LIGHT, paddingBottom: 4 }}>{wd}</div>
+                      <div key={wd} className="cal-weekday-label" style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: TEXT_LIGHT, paddingBottom: 4 }}>{wd}</div>
                     ))}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 6 }}>
+                  <div className="cal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0,1fr))', gap: 6 }}>
                     {cells.map((c, i) => {
-                      if (c.blank) return <div key={i} style={{ background: 'transparent', minHeight: 96 }} />;
+                      if (c.blank) return <div key={i} className="cal-day-cell" style={{ background: 'transparent', minHeight: 96 }} />;
                       const isSignificant = c.slots.length > 0;
                       return (
-                        <div key={i} style={{
+                        <div key={i} className="cal-day-cell" style={{
                           position: 'relative', minHeight: 96, borderRadius: 10,
                           border: c.isToday ? `2px solid ${TEXT_DARK}` : '1.5px solid #e2e8f0',
                           background: isSignificant ? '#fff' : SECONDARY_BG,
                           opacity: isSignificant ? 1 : 0.55,
                           display: 'flex', flexDirection: 'column', gap: 4, padding: 6,
                         }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: c.isToday ? TEXT_DARK : TEXT_LIGHT, padding: '0 2px' }}>{c.day}</span>
+                          <span className="cal-day-num" style={{ fontSize: 12, fontWeight: 700, color: c.isToday ? TEXT_DARK : TEXT_LIGHT, padding: '0 2px' }}>{c.day}</span>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                             {c.slots.length === 0 && <span style={{ fontSize: 10.5, color: '#cbd5e1', padding: '4px 2px' }}>—</span>}
                             {c.slots.map((s, si) => {
-                              let style: React.CSSProperties = { fontSize: 11, fontWeight: 600, padding: '3px 5px', borderRadius: 5, textAlign: 'center', lineHeight: 1.3, border: 'none', width: '100%', fontFamily: "'Inter', sans-serif", cursor: 'pointer' };
+                              let style: React.CSSProperties = { fontSize: 11, fontWeight: 600, padding: '3px 5px', borderRadius: 5, textAlign: 'center', lineHeight: 1.3, border: 'none', width: '100%', fontFamily: "'Inter', sans-serif", cursor: 'pointer', overflowWrap: 'break-word', wordBreak: 'break-word' };
                               let onClick = () => openDay(c.date);
                               let label: React.ReactNode = s.display;
 
@@ -1043,7 +1060,7 @@ export default function BookingPage() {
                               } else if (s.kind === 'unavailable') {
                                 style = { ...style, background: '#e2e8f0', color: '#94a3b8', cursor: 'not-allowed' };
                                 onClick = () => {};
-                                label = 'Unavailable';
+                                label = isNarrowScreen ? 'N/A' : 'Unavailable';
                               } else if (s.kind === 'past-empty') {
                                 style = { ...style, background: 'transparent', color: '#cbd5e1', border: '1px dashed #e2e8f0', cursor: 'default' };
                                 onClick = () => {};
@@ -1051,7 +1068,7 @@ export default function BookingPage() {
                                 style = { ...style, background: SECONDARY_BG, color: ACCENT, border: '1px solid #e2e8f0' };
                                 onClick = () => { setSelectedDay(c.date); setSelectedDate(s.raw); };
                               }
-                              return <button key={si} type="button" style={style} onClick={onClick}>{label}</button>;
+                              return <button key={si} type="button" className="cal-slot-btn" style={style} onClick={onClick}>{label}</button>;
                             })}
                           </div>
                         </div>
