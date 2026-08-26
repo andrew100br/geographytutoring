@@ -540,6 +540,22 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
+        if (action === 'update_lesson_note') {
+            const { noteId, topic, pdfUrl } = payload;
+            const updateData = { topic };
+            if (pdfUrl) updateData.pdf_url = pdfUrl;
+            const { error } = await supabase.from('lesson_notes').update(updateData).eq('id', noteId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'delete_lesson_note') {
+            const { noteId } = payload;
+            const { error } = await supabase.from('lesson_notes').delete().eq('id', noteId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
         if (action === 'add_quiz_score') {
             const { userId, bookingId, lessonNumber, topic, score, outOf } = payload;
             const { error } = await supabase.from('quiz_scores').insert([{
@@ -567,10 +583,26 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'add_homework') {
-            const { userId, bookingId, lessonNumber, dueDate, instructions } = payload;
+            const { userId, bookingId, lessonNumber, dueDate, instructions, fileUrl } = payload;
             const { error } = await supabase.from('homework').insert([{
-                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, due_date: dueDate || null, instructions: instructions || null,
+                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, due_date: dueDate || null, instructions: instructions || null, file_url: fileUrl || null,
             }]);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'update_homework') {
+            const { homeworkId, dueDate, instructions, fileUrl } = payload;
+            const updateData = { due_date: dueDate || null, instructions: instructions || null };
+            if (fileUrl) updateData.file_url = fileUrl;
+            const { error } = await supabase.from('homework').update(updateData).eq('id', homeworkId);
+            if (error) throw error;
+            return { statusCode: 200, body: JSON.stringify({ success: true }) };
+        }
+
+        if (action === 'delete_homework') {
+            const { homeworkId } = payload;
+            const { error } = await supabase.from('homework').delete().eq('id', homeworkId);
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }

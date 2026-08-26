@@ -211,12 +211,14 @@ export default function AdminPage() {
   const [examDraft, setExamDraft] = useState({ name: '', examDate: '' });
   const [noteFormBookingId, setNoteFormBookingId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState({ topic: '', file: null as File | null });
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [quizFormBookingId, setQuizFormBookingId] = useState<string | null>(null);
   const [quizDraft, setQuizDraft] = useState({ score: '', outOf: '10' });
   const [mockFormOpen, setMockFormOpen] = useState(false);
   const [mockDraft, setMockDraft] = useState({ title: '', info: '', result: '', examDate: '', file: null as File | null });
   const [hwFormOpen, setHwFormOpen] = useState(false);
-  const [hwDraft, setHwDraft] = useState({ dueDate: '', instructions: '' });
+  const [hwDraft, setHwDraft] = useState({ dueDate: '', instructions: '', file: null as File | null });
+  const [editingHwId, setEditingHwId] = useState<string | null>(null);
 
   // Add Client Modal State
   const [addForm, setAddForm] = useState({ parentName: '', childName: '', email: '', country: '', password: '' });
@@ -414,14 +416,31 @@ export default function AdminPage() {
     try {
       let pdfUrl;
       if (noteDraft.file) pdfUrl = await uploadViaSignedUrl(noteDraft.file, 'lesson-notes');
+      const isEdit = !!editingNoteId;
       const res = await fetch('/.netlify/functions/admin-action', {
-        method: 'POST', body: JSON.stringify({ action: 'add_lesson_note', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, topic: noteDraft.topic || 'Untitled Lesson', pdfUrl } }),
+        method: 'POST', body: JSON.stringify(
+          isEdit
+            ? { action: 'update_lesson_note', password: adminPass, payload: { noteId: editingNoteId, topic: noteDraft.topic || 'Untitled Lesson', pdfUrl } }
+            : { action: 'add_lesson_note', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, topic: noteDraft.topic || 'Untitled Lesson', pdfUrl } }
+        ),
       });
       if (!res.ok) throw new Error('Failed to save the note.');
       setNoteFormBookingId(null);
+      setEditingNoteId(null);
       setNoteDraft({ topic: '', file: null });
       openDetails(selectedUser);
     } catch (err: any) { alert(err?.message || 'Failed to save lesson note.'); }
+  };
+
+  const deleteLessonNote = async (noteId: string) => {
+    if (!confirm('Delete this lesson note? This cannot be undone.')) return;
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'delete_lesson_note', password: adminPass, payload: { noteId } }),
+      });
+      if (!res.ok) throw new Error();
+      setLessonNotes(prev => prev.filter(n => n.id !== noteId));
+    } catch { alert('Failed to delete lesson note.'); }
   };
 
   const saveQuizScore = async (bookingId: string, lessonNumber: number | null, topic: string) => {
@@ -462,14 +481,33 @@ export default function AdminPage() {
 
   const saveHomework = async (bookingId: string, lessonNumber: number | null) => {
     try {
+      let fileUrl;
+      if (hwDraft.file) fileUrl = await uploadViaSignedUrl(hwDraft.file, 'homework-attachments');
+      const isEdit = !!editingHwId;
       const res = await fetch('/.netlify/functions/admin-action', {
-        method: 'POST', body: JSON.stringify({ action: 'add_homework', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions } }),
+        method: 'POST', body: JSON.stringify(
+          isEdit
+            ? { action: 'update_homework', password: adminPass, payload: { homeworkId: editingHwId, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions, fileUrl } }
+            : { action: 'add_homework', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions, fileUrl } }
+        ),
+      });
+      if (!res.ok) throw new Error('Failed to save the homework.');
+      setHwFormOpen(false);
+      setEditingHwId(null);
+      setHwDraft({ dueDate: '', instructions: '', file: null });
+      openDetails(selectedUser);
+    } catch (err: any) { alert(err?.message || 'Failed to save homework.'); }
+  };
+
+  const deleteHomework = async (homeworkId: string) => {
+    if (!confirm('Delete this homework entry? This cannot be undone.')) return;
+    try {
+      const res = await fetch('/.netlify/functions/admin-action', {
+        method: 'POST', body: JSON.stringify({ action: 'delete_homework', password: adminPass, payload: { homeworkId } }),
       });
       if (!res.ok) throw new Error();
-      setHwFormOpen(false);
-      setHwDraft({ dueDate: '', instructions: '' });
-      openDetails(selectedUser);
-    } catch { alert('Failed to save homework.'); }
+      setHomeworkList(prev => prev.filter(h => h.id !== homeworkId));
+    } catch { alert('Failed to delete homework.'); }
   };
 
   const toggleBookingMissed = async (bookingId: string, missed: boolean) => {
@@ -1456,10 +1494,21 @@ export default function AdminPage() {
                                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                                       {existingNote ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.7rem', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, fontSize: '0.75rem', color: '#0369a1', fontWeight: 600 }}>
-                                          {existingNote.topic} — {existingNote.pdf_url ? 'PDF attached' : 'saved'}
+                                          {existingNote.pdf_url ? (
+                                            <a href={existingNote.pdf_url} target="_blank" rel="noopener noreferrer" style={{ color: '#0369a1', textDecoration: 'underline' }}>{existingNote.topic} — PDF attached</a>
+                                          ) : (
+                                            <span>{existingNote.topic} — saved</span>
+                                          )}
+                                          <button title="Edit note" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0369a1', padding: 0, lineHeight: 1 }}
+                                            onClick={() => { setEditingNoteId(existingNote.id); setNoteFormBookingId(b.id); setNoteDraft({ topic: existingNote.topic || '', file: null }); }}>
+                                            <i className="ph ph-pencil-simple"></i>
+                                          </button>
+                                          <button title="Delete note" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 0, lineHeight: 1 }} onClick={() => deleteLessonNote(existingNote.id)}>
+                                            <i className="ph ph-trash"></i>
+                                          </button>
                                         </div>
                                       ) : (
-                                        <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem' }} onClick={() => { setNoteFormBookingId(noteFormBookingId === b.id ? null : b.id); setNoteDraft({ topic: '', file: null }); }}>
+                                        <button className="btn btn-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem' }} onClick={() => { setEditingNoteId(null); setNoteFormBookingId(noteFormBookingId === b.id ? null : b.id); setNoteDraft({ topic: '', file: null }); }}>
                                           <i className="ph ph-file-text"></i> {noteFormBookingId === b.id ? 'Close' : 'Add Lesson Note'}
                                         </button>
                                       )}
@@ -1478,11 +1527,11 @@ export default function AdminPage() {
                                       <div style={{ marginTop: 10, padding: '0.75rem', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 6 }}>
                                         <label style={labelStyle}>Topic / Unit Covered</label>
                                         <input style={{ ...inputStyle, marginBottom: 10 }} value={noteDraft.topic} onChange={e => setNoteDraft({ ...noteDraft, topic: e.target.value })} placeholder="e.g. Rivers & Coasts — Landforms" />
-                                        <label style={labelStyle}>Lesson Notes PDF</label>
+                                        <label style={labelStyle}>Lesson Notes PDF{editingNoteId ? ' (leave blank to keep the current file)' : ''}</label>
                                         <input type="file" accept="application/pdf" style={{ marginBottom: 10, fontSize: '0.85rem' }} onChange={e => setNoteDraft({ ...noteDraft, file: e.target.files?.[0] || null })} />
                                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                                          <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => setNoteFormBookingId(null)}>Cancel</button>
-                                          <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveLessonNote(b.id, lessonNum)}>Save Note</button>
+                                          <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => { setNoteFormBookingId(null); setEditingNoteId(null); }}>Cancel</button>
+                                          <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveLessonNote(b.id, lessonNum)}>{editingNoteId ? 'Save Changes' : 'Save Note'}</button>
                                         </div>
                                       </div>
                                     )}
@@ -1569,7 +1618,7 @@ export default function AdminPage() {
                     <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <h4 style={{ margin: 0 }}>Homework — {PACKAGE_NAME} Students</h4>
-                        <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => setHwFormOpen(!hwFormOpen)}><i className="ph ph-plus"></i> {hwFormOpen ? 'Close' : 'Add Homework'}</button>
+                        <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => { setEditingHwId(null); setHwDraft({ dueDate: '', instructions: '', file: null }); setHwFormOpen(!hwFormOpen); }}><i className="ph ph-plus"></i> {hwFormOpen ? 'Close' : 'Add Homework'}</button>
                       </div>
                       {hwFormOpen && (
                         <div style={{ padding: '0.9rem', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8, marginBottom: 12 }}>
@@ -1577,9 +1626,11 @@ export default function AdminPage() {
                           <input type="date" style={{ ...inputStyle, marginBottom: 10 }} value={hwDraft.dueDate} onChange={e => setHwDraft({ ...hwDraft, dueDate: e.target.value })} />
                           <label style={labelStyle}>Instructions</label>
                           <textarea style={{ ...inputStyle, minHeight: 70, marginBottom: 10, resize: 'vertical' }} value={hwDraft.instructions} onChange={e => setHwDraft({ ...hwDraft, instructions: e.target.value })} placeholder="What should the student do?" />
+                          <label style={labelStyle}>Attach a File{editingHwId ? ' (leave blank to keep the current file)' : ' (optional)'}</label>
+                          <input type="file" style={{ marginBottom: 10, fontSize: '0.85rem' }} onChange={e => setHwDraft({ ...hwDraft, file: e.target.files?.[0] || null })} />
                           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => setHwFormOpen(false)}>Cancel</button>
-                            <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveHomework(recentPast[0]?.id, recentPast[0] ? lessonNumberFor(recentPast[0].id) : null)}>Save Homework</button>
+                            <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => { setHwFormOpen(false); setEditingHwId(null); }}>Cancel</button>
+                            <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveHomework(recentPast[0]?.id, recentPast[0] ? lessonNumberFor(recentPast[0].id) : null)}>{editingHwId ? 'Save Changes' : 'Save Homework'}</button>
                           </div>
                         </div>
                       )}
@@ -1591,9 +1642,19 @@ export default function AdminPage() {
                             <div key={hw.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.75rem 1rem' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
                                 <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{hw.lesson_number ? `Lesson ${hw.lesson_number} Homework` : 'Homework'}</span>
-                                {hw.due_date && <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: 20 }}>Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  {hw.due_date && <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: 20 }}>Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
+                                  <button title="Edit homework" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 0, lineHeight: 1 }}
+                                    onClick={() => { setEditingHwId(hw.id); setHwDraft({ dueDate: hw.due_date || '', instructions: hw.instructions || '', file: null }); setHwFormOpen(true); }}>
+                                    <i className="ph ph-pencil-simple"></i>
+                                  </button>
+                                  <button title="Delete homework" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 0, lineHeight: 1 }} onClick={() => deleteHomework(hw.id)}>
+                                    <i className="ph ph-trash"></i>
+                                  </button>
+                                </div>
                               </div>
                               {hw.instructions && <p style={{ fontSize: '0.82rem', color: '#64748b', lineHeight: 1.5, margin: '0 0 8px' }}>{hw.instructions}</p>}
+                              {hw.file_url && <a href={hw.file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 600, marginBottom: 6 }}>Attached — view file</a>}
                               {hw.uploaded_file_url ? (
                                 <a href={hw.uploaded_file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>Student uploaded — view file</a>
                               ) : (
