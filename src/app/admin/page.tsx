@@ -217,7 +217,7 @@ export default function AdminPage() {
   const [mockFormOpen, setMockFormOpen] = useState(false);
   const [mockDraft, setMockDraft] = useState({ title: '', info: '', result: '', examDate: '', file: null as File | null });
   const [hwFormOpen, setHwFormOpen] = useState(false);
-  const [hwDraft, setHwDraft] = useState({ dueDate: '', instructions: '', file: null as File | null });
+  const [hwDraft, setHwDraft] = useState({ topic: '', dueDate: '', instructions: '', files: [] as File[], existingFileUrls: [] as string[] });
   const [editingHwId, setEditingHwId] = useState<string | null>(null);
 
   // Add Client Modal State
@@ -481,20 +481,20 @@ export default function AdminPage() {
 
   const saveHomework = async (bookingId: string, lessonNumber: number | null) => {
     try {
-      let fileUrl;
-      if (hwDraft.file) fileUrl = await uploadViaSignedUrl(hwDraft.file, 'homework-attachments');
+      const newUrls = await Promise.all(hwDraft.files.map(f => uploadViaSignedUrl(f, 'homework-attachments')));
+      const fileUrls = [...hwDraft.existingFileUrls, ...newUrls];
       const isEdit = !!editingHwId;
       const res = await fetch('/.netlify/functions/admin-action', {
         method: 'POST', body: JSON.stringify(
           isEdit
-            ? { action: 'update_homework', password: adminPass, payload: { homeworkId: editingHwId, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions, fileUrl } }
-            : { action: 'add_homework', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions, fileUrl } }
+            ? { action: 'update_homework', password: adminPass, payload: { homeworkId: editingHwId, topic: hwDraft.topic, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions, fileUrls } }
+            : { action: 'add_homework', password: adminPass, payload: { userId: selectedUser.id, bookingId, lessonNumber, topic: hwDraft.topic, dueDate: hwDraft.dueDate, instructions: hwDraft.instructions, fileUrls } }
         ),
       });
       if (!res.ok) throw new Error('Failed to save the homework.');
       setHwFormOpen(false);
       setEditingHwId(null);
-      setHwDraft({ dueDate: '', instructions: '', file: null });
+      setHwDraft({ topic: '', dueDate: '', instructions: '', files: [], existingFileUrls: [] });
       openDetails(selectedUser);
     } catch (err: any) { alert(err?.message || 'Failed to save homework.'); }
   };
@@ -1618,16 +1618,51 @@ export default function AdminPage() {
                     <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <h4 style={{ margin: 0 }}>Homework — {PACKAGE_NAME} Students</h4>
-                        <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => { setEditingHwId(null); setHwDraft({ dueDate: '', instructions: '', file: null }); setHwFormOpen(!hwFormOpen); }}><i className="ph ph-plus"></i> {hwFormOpen ? 'Close' : 'Add Homework'}</button>
+                        <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => { setEditingHwId(null); setHwDraft({ topic: '', dueDate: '', instructions: '', files: [], existingFileUrls: [] }); setHwFormOpen(!hwFormOpen); }}><i className="ph ph-plus"></i> {hwFormOpen ? 'Close' : 'Add Homework'}</button>
                       </div>
                       {hwFormOpen && (
                         <div style={{ padding: '0.9rem', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8, marginBottom: 12 }}>
+                          <label style={labelStyle}>Lesson Label</label>
+                          <input style={{ ...inputStyle, marginBottom: 10 }} value={hwDraft.topic} onChange={e => setHwDraft({ ...hwDraft, topic: e.target.value })} placeholder="e.g. Lesson 1 (A-Level)" />
                           <label style={labelStyle}>Due Date</label>
                           <input type="date" style={{ ...inputStyle, marginBottom: 10 }} value={hwDraft.dueDate} onChange={e => setHwDraft({ ...hwDraft, dueDate: e.target.value })} />
                           <label style={labelStyle}>Instructions</label>
                           <textarea style={{ ...inputStyle, minHeight: 70, marginBottom: 10, resize: 'vertical' }} value={hwDraft.instructions} onChange={e => setHwDraft({ ...hwDraft, instructions: e.target.value })} placeholder="What should the student do?" />
-                          <label style={labelStyle}>Attach a File{editingHwId ? ' (leave blank to keep the current file)' : ' (optional)'}</label>
-                          <input type="file" style={{ marginBottom: 10, fontSize: '0.85rem' }} onChange={e => setHwDraft({ ...hwDraft, file: e.target.files?.[0] || null })} />
+
+                          {hwDraft.existingFileUrls.length > 0 && (
+                            <div style={{ marginBottom: 10 }}>
+                              <label style={labelStyle}>Currently Attached</label>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {hwDraft.existingFileUrls.map((url, i) => (
+                                  <div key={url} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem' }}>
+                                    <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>{url.split('/').pop()}</a>
+                                    <button title="Remove file" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 0, lineHeight: 1 }}
+                                      onClick={() => setHwDraft({ ...hwDraft, existingFileUrls: hwDraft.existingFileUrls.filter((_, fi) => fi !== i) })}>
+                                      <i className="ph ph-x"></i>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {hwDraft.files.length > 0 && (
+                            <div style={{ marginBottom: 10 }}>
+                              <label style={labelStyle}>New Files To Upload</label>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {hwDraft.files.map((f, i) => (
+                                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem' }}>
+                                    <span>{f.name}</span>
+                                    <button title="Remove file" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 0, lineHeight: 1 }}
+                                      onClick={() => setHwDraft({ ...hwDraft, files: hwDraft.files.filter((_, fi) => fi !== i) })}>
+                                      <i className="ph ph-x"></i>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <label style={labelStyle}>Attach File(s) (optional — add as many as you need)</label>
+                          <input type="file" multiple style={{ marginBottom: 10, fontSize: '0.85rem' }} onChange={e => setHwDraft({ ...hwDraft, files: [...hwDraft.files, ...Array.from(e.target.files || [])] })} />
                           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                             <button className="btn btn-outline" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => { setHwFormOpen(false); setEditingHwId(null); }}>Cancel</button>
                             <button className="btn btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }} onClick={() => saveHomework(recentPast[0]?.id, recentPast[0] ? lessonNumberFor(recentPast[0].id) : null)}>{editingHwId ? 'Save Changes' : 'Save Homework'}</button>
@@ -1638,14 +1673,16 @@ export default function AdminPage() {
                         <p style={{ fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>No homework set yet.</p>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {homeworkList.map(hw => (
+                          {homeworkList.map(hw => {
+                            const hwFileUrls: string[] = hw.file_urls && hw.file_urls.length > 0 ? hw.file_urls : (hw.file_url ? [hw.file_url] : []);
+                            return (
                             <div key={hw.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.75rem 1rem' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
-                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{hw.lesson_number ? `Lesson ${hw.lesson_number} Homework` : 'Homework'}</span>
+                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{hw.topic || (hw.lesson_number ? `Lesson ${hw.lesson_number} Homework` : 'Homework')}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                   {hw.due_date && <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: 20 }}>Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
                                   <button title="Edit homework" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 0, lineHeight: 1 }}
-                                    onClick={() => { setEditingHwId(hw.id); setHwDraft({ dueDate: hw.due_date || '', instructions: hw.instructions || '', file: null }); setHwFormOpen(true); }}>
+                                    onClick={() => { setEditingHwId(hw.id); setHwDraft({ topic: hw.topic || (hw.lesson_number ? `Lesson ${hw.lesson_number}` : ''), dueDate: hw.due_date || '', instructions: hw.instructions || '', files: [], existingFileUrls: hwFileUrls }); setHwFormOpen(true); }}>
                                     <i className="ph ph-pencil-simple"></i>
                                   </button>
                                   <button title="Delete homework" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 0, lineHeight: 1 }} onClick={() => deleteHomework(hw.id)}>
@@ -1654,14 +1691,21 @@ export default function AdminPage() {
                                 </div>
                               </div>
                               {hw.instructions && <p style={{ fontSize: '0.82rem', color: '#64748b', lineHeight: 1.5, margin: '0 0 8px' }}>{hw.instructions}</p>}
-                              {hw.file_url && <a href={hw.file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 600, marginBottom: 6 }}>Attached — view file</a>}
+                              {hwFileUrls.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+                                  {hwFileUrls.map((url, i) => (
+                                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 600 }}>Attached file {hwFileUrls.length > 1 ? i + 1 : ''} — view</a>
+                                  ))}
+                                </div>
+                              )}
                               {hw.uploaded_file_url ? (
                                 <a href={hw.uploaded_file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>Student uploaded — view file</a>
                               ) : (
                                 <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No work uploaded yet</span>
                               )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

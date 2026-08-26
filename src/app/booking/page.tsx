@@ -1237,17 +1237,23 @@ export default function BookingPage() {
                         <p style={{ fontSize: 14, color: TEXT_LIGHT }}>No homework set right now.</p>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                          {homeworkList.map((hw) => (
+                          {homeworkList.map((hw) => {
+                            const hwFileUrls: string[] = hw.file_urls && hw.file_urls.length > 0 ? hw.file_urls : (hw.file_url ? [hw.file_url] : []);
+                            return (
                             <div key={hw.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 18 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-                                <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{hw.lesson_number ? `Lesson ${hw.lesson_number} Homework` : 'Homework'}</p>
+                                <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{hw.topic || (hw.lesson_number ? `Lesson ${hw.lesson_number} Homework` : 'Homework')}</p>
                                 {hw.due_date && <span style={{ fontSize: 12, fontWeight: 600, color: AMBER, background: '#fffbeb', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
                               </div>
                               {hw.instructions && <p style={{ fontSize: 13.5, color: TEXT_LIGHT, lineHeight: 1.6, margin: '0 0 14px' }}>{hw.instructions}</p>}
-                              {hw.file_url && (
-                                <a href={hw.file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: SECONDARY_BG, border: '1px solid #e2e8f0', padding: '9px 14px', borderRadius: 50, fontSize: 12.5, fontWeight: 600, color: TEXT_DARK, textDecoration: 'none', marginBottom: 12 }}>
-                                  <i className="ph ph-paperclip"></i> Worksheet attached — view file
-                                </a>
+                              {hwFileUrls.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                                  {hwFileUrls.map((url, i) => (
+                                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: SECONDARY_BG, border: '1px solid #e2e8f0', padding: '9px 14px', borderRadius: 50, fontSize: 12.5, fontWeight: 600, color: TEXT_DARK, textDecoration: 'none' }}>
+                                      <i className="ph ph-paperclip"></i> {hwFileUrls.length > 1 ? `File ${i + 1}` : 'Worksheet attached'} — view
+                                    </a>
+                                  ))}
+                                </div>
                               )}
                               {hw.uploaded_file_url ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: GREEN_TEXT, fontWeight: 600 }}>
@@ -1262,7 +1268,8 @@ export default function BookingPage() {
                                 </label>
                               )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </>

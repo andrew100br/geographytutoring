@@ -583,18 +583,18 @@ exports.handler = async (event, context) => {
         }
 
         if (action === 'add_homework') {
-            const { userId, bookingId, lessonNumber, dueDate, instructions, fileUrl } = payload;
+            const { userId, bookingId, lessonNumber, topic, dueDate, instructions, fileUrls } = payload;
             const { error } = await supabase.from('homework').insert([{
-                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, due_date: dueDate || null, instructions: instructions || null, file_url: fileUrl || null,
+                user_id: userId, booking_id: bookingId || null, lesson_number: lessonNumber || null, topic: topic || null, due_date: dueDate || null, instructions: instructions || null, file_urls: fileUrls || [],
             }]);
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
         }
 
         if (action === 'update_homework') {
-            const { homeworkId, dueDate, instructions, fileUrl } = payload;
-            const updateData = { due_date: dueDate || null, instructions: instructions || null };
-            if (fileUrl) updateData.file_url = fileUrl;
+            const { homeworkId, topic, dueDate, instructions, fileUrls } = payload;
+            const updateData = { topic: topic || null, due_date: dueDate || null, instructions: instructions || null };
+            if (fileUrls) updateData.file_urls = fileUrls;
             const { error } = await supabase.from('homework').update(updateData).eq('id', homeworkId);
             if (error) throw error;
             return { statusCode: 200, body: JSON.stringify({ success: true }) };
