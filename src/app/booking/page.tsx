@@ -1244,6 +1244,11 @@ export default function BookingPage() {
                                 {hw.due_date && <span style={{ fontSize: 12, fontWeight: 600, color: AMBER, background: '#fffbeb', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
                               </div>
                               {hw.instructions && <p style={{ fontSize: 13.5, color: TEXT_LIGHT, lineHeight: 1.6, margin: '0 0 14px' }}>{hw.instructions}</p>}
+                              {hw.file_url && (
+                                <a href={hw.file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: SECONDARY_BG, border: '1px solid #e2e8f0', padding: '9px 14px', borderRadius: 50, fontSize: 12.5, fontWeight: 600, color: TEXT_DARK, textDecoration: 'none', marginBottom: 12 }}>
+                                  <i className="ph ph-paperclip"></i> Worksheet attached — view file
+                                </a>
+                              )}
                               {hw.uploaded_file_url ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: GREEN_TEXT, fontWeight: 600 }}>
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GREEN_TEXT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"></path><circle cx="12" cy="12" r="9"></circle></svg>
